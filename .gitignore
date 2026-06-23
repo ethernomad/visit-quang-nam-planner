@@ -12,3 +12,7 @@ node_modules/
 # Editor
 .vscode/
 .idea/
+
+# Test fixture caches (LLM response recorder writes here; the committed
+# files under tests/fixtures/ are tracked, this directory is not)
+/tests/fixtures/.cache/

@@ -1,0 +1,65 @@
+{
+  "days": [
+    {
+      "index": 1,
+      "title": "Day 1 - Arrival in Hoi An",
+      "date_hint": "Monday",
+      "weather": { "label": "Sunny, 28C", "icon": "sun" },
+      "activities": [
+        {
+          "time": "9:00 AM",
+          "title": "Hoi An food tour",
+          "description": "Cao lau and banh mi in the old town morning markets.",
+          "category": "Food",
+          "source_url": "https://visitquangnam.com/hoi-an-food-tour",
+          "estimated_cost_vnd": 120000,
+          "duration_minutes": 90
+        },
+        {
+          "time": "1:00 PM",
+          "title": "An Bang beach afternoon",
+          "description": "Calm water and seafood shacks 4km from town.",
+          "category": "Beach",
+          "source_url": "https://visitquangnam.com/an-bang-beach"
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "title": "Day 2 - Culture & green travel",
+      "date_hint": "Tuesday",
+      "weather": { "label": "Sunny, 29C", "icon": "sun" },
+      "activities": [
+        {
+          "time": "6:30 AM",
+          "title": "My Son sanctuary sunrise",
+          "description": "Cham temples in a jungle valley; beat the heat.",
+          "category": "Culture",
+          "source_url": "https://visitquangnam.com/my-son-ruins",
+          "duration_minutes": 180
+        },
+        {
+          "time": "2:00 PM",
+          "title": "Tra Que herb village cycle",
+          "description": "Ride a basket boat, learn to cook local dishes.",
+          "category": "Culture",
+          "source_url": "https://visitquangnam.com/tra-que-herb-village",
+          "estimated_cost_vnd": 250000
+        },
+        {
+          "time": "6:00 PM",
+          "title": "Dong ecovillage homestay",
+          "description": "Community-based homestay; no single-use plastic.",
+          "category": "Wellness",
+          "source_url": "https://visitquangnam.com/dong-ecovillage"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "duration": "2 days / 1 night",
+    "destinations": ["Hoi An", "An Bang", "My Son", "Tra Que", "Dong"],
+    "budget_estimate": "$120-180 per person (excl. flights)",
+    "sustainability_score": 88
+  }
+}

@@ -1,10 +1,11 @@
 // Server functions. Phase 3: `plan_trip` orchestrates retrieve → prompt →
-// LLM → typed `Itinerary`. OpenAI keys live here (server-only) and never
-// reach the wasm client.
+// LLM → typed `Itinerary`. LLM keys live here (server-only) and never reach
+// the wasm client.
 //
-// Phase 2 adds `shared_retriever()` (lazily-initialized `OnceLock`) and the
+// Phase 2 added `shared_retriever()` (lazily-initialized `OnceLock`) and the
 // `/api/retriever-smoke` server function so boot/load behaviour is observable
-// without exercising the LLM.
+// without exercising the LLM. Phase 3 adds the `llm`, `prompts`, and
+// `plan_trip` submodules and the matching `shared_llm()` singleton.
 
 #![cfg(feature = "server")]
 
@@ -15,6 +16,10 @@ use dioxus::prelude::*;
 
 use visit_quang_nam_planner::ingest::embedder::OpenAiEmbedder;
 use visit_quang_nam_planner::retrieval::{InMemoryRetriever, Retriever};
+
+pub mod llm;
+pub mod plan_trip;
+pub mod prompts;
 
 /// Returns a process-wide shared retriever handle. Initialisation runs once
 /// per process on first call; if it fails, the error is **cached** and
@@ -37,6 +42,25 @@ pub fn shared_retriever() -> anyhow::Result<Arc<dyn Retriever>> {
         })
         .as_ref()
         .map_err(|e| anyhow::anyhow!("retriever init failed: {e}"))?
+        .clone())
+}
+
+/// Process-wide shared `LlmClient`. Same `OnceLock`-with-cached-error pattern
+/// as `shared_retriever()`: if `from_env()` fails (e.g. `OPENCODE_API_KEY`
+/// unset), the error is cached for the process lifetime and the operator
+/// restarts the server after exporting the key.
+///
+/// `plan_trip` calls this via the `#[post]` wrapper. Tests bypass it by
+/// calling `plan_trip_inner` with their own `MockLlm`.
+pub fn shared_llm() -> anyhow::Result<Arc<dyn llm::LlmCompleter>> {
+    static LLM: OnceLock<anyhow::Result<Arc<dyn llm::LlmCompleter>>> = OnceLock::new();
+    Ok(LLM
+        .get_or_init(|| {
+            let client = llm::LlmClient::from_env()?;
+            Ok(Arc::new(client) as Arc<dyn llm::LlmCompleter>)
+        })
+        .as_ref()
+        .map_err(|e| anyhow::anyhow!("LLM init failed: {e}"))?
         .clone())
 }
 

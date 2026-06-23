@@ -1,0 +1,51 @@
+{
+  "model": "text-embedding-3-small",
+  "generated_at": "2026-06-23T00:00:00Z",
+  "chunks": [
+    {
+      "id": "1-0",
+      "post_id": 1,
+      "source_url": "https://visitquangnam.com/hoi-an-food-tour",
+      "title": "Hoi An food tour",
+      "category": "Food",
+      "text": "Try cao lau noodles and banh mi in the Hoi An old town. Best in the morning markets.",
+      "embedding": [1.0, 0.0, 0.0]
+    },
+    {
+      "id": "2-0",
+      "post_id": 2,
+      "source_url": "https://visitquangnam.com/an-bang-beach",
+      "title": "An Bang beach guide",
+      "category": "Beaches",
+      "text": "An Bang beach is 4km from Hoi An. Calm water, sun loungers, seafood shacks.",
+      "embedding": [0.0, 1.0, 0.0]
+    },
+    {
+      "id": "3-0",
+      "post_id": 3,
+      "source_url": "https://visitquangnam.com/my-son-ruins",
+      "title": "My Son sanctuary ruins",
+      "category": "Culture",
+      "text": "UNESCO My Son ruins are Cham temples in a jungle valley. Go early to beat the heat.",
+      "embedding": [0.0, 0.0, 1.0]
+    },
+    {
+      "id": "4-0",
+      "post_id": 4,
+      "source_url": "https://visitquangnam.com/tra-que-herb-village",
+      "title": "Tra Que herb village cycle tour",
+      "category": "Green travel",
+      "text": "Cycle to Tra Que organic herb village, ride a basket boat, learn to cook local dishes.",
+      "embedding": [0.7, 0.7, 0.0]
+    },
+    {
+      "id": "5-0",
+      "post_id": 5,
+      "source_url": "https://visitquangnam.com/dong-ecovillage",
+      "title": "Dong ecovillage homestay",
+      "category": "Green travel",
+      "text": "Community-based homestay at Dong ecovillage near Hoi An. Cycling, cooking, no single-use plastic.",
+      "embedding": [0.6, 0.6, 0.5]
+    }
+  ]
+}
