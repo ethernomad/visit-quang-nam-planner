@@ -96,7 +96,10 @@ Notes:
 src/
 ├── main.rs              # dioxus::launch(App)
 ├── app.rs               # root component, Tailwind shell, brand chrome
-├── components/          # form, day tabs, timeline, summary (Phase 4)
+├── components/          # form, day tabs, timeline, summary, "More
+│                        # ideas" footer (Phase 4; the SVG mockup's
+│                        # "AI Recommended For You" sidebar was folded into
+│                        # `trip_summary.rs` — no separate suggestions.rs)
 ├── domain/              # Chunk, Corpus (Phase 1); Itinerary, DayPlan... (Phase 2)
 ├── ingest/              # WordPress REST fetch + chunker + embedder (Phase 1)
 ├── retrieval/           # Retriever trait + InMemoryRetriever (Phase 2)
@@ -115,6 +118,8 @@ assets/
 2. **Phase 1 — Ingest + corpus:** `build_corpus.rs` pulls WP REST, chunks, embeds, writes `corpus.json`.
 3. **Phase 2 — Retrieval:** `Retriever` trait + `InMemoryRetriever`; offline cosine search tests.
 4. **Phase 3 — LLM orchestration:** `plan_trip` server fn returns typed `Itinerary`; JSON-schema validated.
-5. **Phase 4 — UI:** form, day tabs, timeline, summary, suggestions matching the SVG mockup.
+5. **Phase 4 — UI:** form, day tabs, timeline, summary, "More ideas" footer
+   row (replaces the SVG mockup's "AI Recommended For You" sidebar — see
+   `src/components/trip_summary.rs` and `plans/phase-4-ui.md`).
 6. **Phase 5 — Polish:** loading states, error surfacing, sustainability score, EN strings.
 7. **Phase 6 — Ship:** Dockerfile, README demo link.

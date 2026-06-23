@@ -11,10 +11,17 @@
 // unit tests) inject mocks so the orchestration is exercised without
 // touching OpenAI/Zen.
 //
+// This file is compiled under BOTH `web`-only and `server` builds — the
+// Dioxus `#[post]` macro generates a wasm client stub for `plan_trip`
+// automatically; the helpers (`plan_trip_inner`, `validate_prefs`,
+// `post_validate`, `build_retrieval_query`) and the server-only `use`
+// statements are gated behind `#[cfg(feature = "server")]` because they
+// touch `Retriever` / `LlmCompleter` / `prompts` which are themselves
+// server-gated.
+//
 // All keys live in env (`OPENCODE_API_KEY`, `OPENCODE_BASE_URL`,
 // `OPENAI_API_KEY` for query-time embeddings). Neither key ever ships to
-// wasm — this file (and the whole `server` module) is gated behind
-// `#[cfg(feature = "server")]` via `src/server/mod.rs`.
+// wasm — the helpers are absent from the wasm build entirely.
 //
 // Manual smoke test (server running on http://127.0.0.1:8080, Zen creds in
 // env):
@@ -23,21 +30,28 @@
 //     -d '{"duration_days":3,"month":"March","interests":["Food","Beaches"],"travelers":{"adults":2,"kids":0},"pace":"Slow","budget_tier":"Mid","green_travel":true}'
 // Expect 200 with a structured `Itinerary` JSON body.
 
-#![cfg(feature = "server")]
-
-use std::collections::HashSet;
-
 use dioxus::prelude::*;
 
-use visit_quang_nam_planner::domain::{Chunk, Itinerary, Preferences};
+use visit_quang_nam_planner::domain::{Itinerary, Preferences};
+
+#[cfg(feature = "server")]
+use std::collections::HashSet;
+
+#[cfg(feature = "server")]
+use visit_quang_nam_planner::domain::Chunk;
+#[cfg(feature = "server")]
 use visit_quang_nam_planner::retrieval::Retriever;
 
+#[cfg(feature = "server")]
 use crate::server::llm::LlmCompleter;
+#[cfg(feature = "server")]
 use crate::server::prompts;
+#[cfg(feature = "server")]
 use crate::server::{shared_llm, shared_retriever};
 
 /// Number of grounding chunks retrieved per request. 8 is roughly 2.4K tokens
 /// of context, well within `gpt-4o-mini`/`big-pickle` limits.
+#[cfg(feature = "server")]
 const TOP_K: usize = 8;
 
 /// POST `/api/plan-trip`. The wire format is `Preferences` (JSON) → 200
@@ -45,18 +59,35 @@ const TOP_K: usize = 8;
 /// failures are surfaced as 500s by default — the UI's job is to render the
 /// message, not to silently fall back (per AGENTS.md: "Better UX than showing
 /// the user a fake link").
+///
+/// The `#[post]` macro emits a wasm client stub for `plan_trip` even when
+/// the `server` feature is off — that's what makes the symbol importable by
+/// `src/app.rs` from the client side. The function body is replaced by a
+/// `client_query` call in that case.
 #[post("/api/plan-trip")]
 pub async fn plan_trip(prefs: Preferences) -> Result<Itinerary, ServerFnError> {
-    let retriever = shared_retriever().map_err(|e| ServerFnError::new(e.to_string()))?;
-    let llm = shared_llm().map_err(|e| ServerFnError::new(e.to_string()))?;
-    plan_trip_inner(&prefs, retriever.as_ref(), llm.as_ref())
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
+    #[cfg(feature = "server")]
+    {
+        let retriever = shared_retriever().map_err(|e| ServerFnError::new(e.to_string()))?;
+        let llm = shared_llm().map_err(|e| ServerFnError::new(e.to_string()))?;
+        plan_trip_inner(&prefs, retriever.as_ref(), llm.as_ref())
+            .await
+            .map_err(|e| ServerFnError::new(e.to_string()))
+    }
+    // Under `web`-only, the `#[post]` macro rewrites this body to a
+    // `client_query` call before it ever reaches the type checker. This
+    // arm exists only so the file parses when the macro is not yet
+    // expanded (e.g. editor/LSP); it is unreachable in real builds.
+    #[cfg(not(feature = "server"))]
+    {
+        unreachable!("plan_trip body is replaced by the #[post] macro on the client")
+    }
 }
 
 /// Orchestration core, callable with injected `Retriever` + `LlmCompleter`.
 /// `tests/plan_trip.rs` builds `MockLlm` + a fixture corpus and calls this
 /// directly — no global state, no network.
+#[cfg(feature = "server")]
 pub async fn plan_trip_inner(
     prefs: &Preferences,
     retriever: &dyn Retriever,
@@ -88,6 +119,7 @@ pub async fn plan_trip_inner(
 /// as 400s once the UI wires `StatusCode` mapping (Phase 5); for Phase 3,
 /// `ServerFnError` defaults to 500 which is fine since the form constrains
 /// inputs client-side.
+#[cfg(feature = "server")]
 fn validate_prefs(p: &Preferences) -> anyhow::Result<()> {
     if p.duration_days == 0 || p.duration_days > 14 {
         anyhow::bail!("duration_days must be 1..=14, got {}", p.duration_days);
@@ -105,6 +137,7 @@ fn validate_prefs(p: &Preferences) -> anyhow::Result<()> {
 /// retriever just embeds any natural-language string — describing the
 /// preferences as a sentence works better for cosine against post-text
 /// embeddings than a YAML blob would.
+#[cfg(feature = "server")]
 fn build_retrieval_query(p: &Preferences) -> String {
     format!(
         "{}-day {} trip in {:?}, {:?} pace, {:?} budget, {} adults + {} kids, interests: {:?}",
@@ -123,6 +156,7 @@ fn build_retrieval_query(p: &Preferences) -> String {
 /// URL despite rule 2; this rejects the response with a clear error so the
 /// API call (not the UI) breaks. Returns the offending field in the error so
 /// the operator can grep the cached chunk set.
+#[cfg(feature = "server")]
 fn post_validate(itin: &Itinerary, prefs: &Preferences, chunks: &[Chunk]) -> anyhow::Result<()> {
     if itin.days.len() != prefs.duration_days as usize {
         anyhow::bail!(

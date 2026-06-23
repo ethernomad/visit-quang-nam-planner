@@ -1,20 +1,22 @@
-// Server functions. Phase 3: `plan_trip` orchestrates retrieve → prompt →
-// LLM → typed `Itinerary`. LLM keys live here (server-only) and never reach
-// the wasm client.
-//
-// Phase 2 added `shared_retriever()` (lazily-initialized `OnceLock`) and the
-// `/api/retriever-smoke` server function so boot/load behaviour is observable
-// without exercising the LLM. Phase 3 adds the `llm`, `prompts`, and
-// `plan_trip` submodules and the matching `shared_llm()` singleton.
+// Server functions / singletons. Phase 3: `plan_trip` orchestrates
+// retrieve → prompt → LLM → typed `Itinerary`. Phase 4 calls `plan_trip`
+// from the wasm client via the `#[post]`-generated client stub, so the
+// `plan_trip` symbol must be visible under both `web`-only and `server`
+// builds — but the helpers it uses (`shared_retriever`, `shared_llm`,
+// `llm::LlmCompleter`, `prompts`) touch server-only deps and stay gated
+// behind `#[cfg(feature = "server")]`.
 
-#![cfg(feature = "server")]
-
+#[cfg(feature = "server")]
 use std::path::PathBuf;
+#[cfg(feature = "server")]
 use std::sync::{Arc, OnceLock};
 
+#[cfg(feature = "server")]
 use dioxus::prelude::*;
 
+#[cfg(feature = "server")]
 use visit_quang_nam_planner::ingest::embedder::OpenAiEmbedder;
+#[cfg(feature = "server")]
 use visit_quang_nam_planner::retrieval::{InMemoryRetriever, Retriever};
 
 pub mod llm;
@@ -30,6 +32,7 @@ pub mod prompts;
 /// `data/corpus.json`). A future `PgVectorRetriever` swap is a one-line
 /// change inside this function; `plan_trip` only ever calls
 /// `shared_retriever()` and stays backend-agnostic.
+#[cfg(feature = "server")]
 pub fn shared_retriever() -> anyhow::Result<Arc<dyn Retriever>> {
     static RETRIEVER: OnceLock<anyhow::Result<Arc<dyn Retriever>>> = OnceLock::new();
     Ok(RETRIEVER
@@ -52,6 +55,7 @@ pub fn shared_retriever() -> anyhow::Result<Arc<dyn Retriever>> {
 ///
 /// `plan_trip` calls this via the `#[post]` wrapper. Tests bypass it by
 /// calling `plan_trip_inner` with their own `MockLlm`.
+#[cfg(feature = "server")]
 pub fn shared_llm() -> anyhow::Result<Arc<dyn llm::LlmCompleter>> {
     static LLM: OnceLock<anyhow::Result<Arc<dyn llm::LlmCompleter>>> = OnceLock::new();
     Ok(LLM
@@ -68,6 +72,7 @@ pub fn shared_llm() -> anyhow::Result<Arc<dyn llm::LlmCompleter>> {
 /// is missing/malformed or `OPENAI_API_KEY` isn't set (the latter only
 /// matters at first query embedding; loading the corpus itself needs no
 /// key). Used by integration checks to confirm `shared_retriever` boots.
+#[cfg(feature = "server")]
 #[server]
 pub async fn retriever_smoke() -> Result<usize, ServerFnError> {
     let r = shared_retriever().map_err(|e| ServerFnError::new(e.to_string()))?;

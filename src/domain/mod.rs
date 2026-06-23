@@ -1,3 +1,5 @@
+pub mod format;
+
 use serde::{Deserialize, Serialize};
 
 // Domain types for the Visit Quang Nam AI Trip Planner.
@@ -59,7 +61,7 @@ pub struct Corpus {
 
 /// A travel interest the user can pick. Maps to WordPress post categories on
 /// visitquangnam.com (Food, Beaches, Culture, Nature, Wellness, Green travel).
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Interest {
     Food,
     Beaches,
@@ -71,7 +73,7 @@ pub enum Interest {
 
 /// Daily activity pace. Drives the per-day activity count in the prompt
 /// (Slow ≤3, Moderate 4, Active 5).
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Pace {
     Slow,
     Moderate,
@@ -80,7 +82,7 @@ pub enum Pace {
 
 /// Spending tier. Affects which restaurants/hotels the LLM picks from the
 /// grounded chunks.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum BudgetTier {
     Backpacker,
     Mid,
@@ -89,7 +91,7 @@ pub enum BudgetTier {
 
 /// Month of travel. Used by the LLM for weather context and the per-day
 /// `date_hint` (e.g. "Monday").
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Month {
     January,
     February,
@@ -111,6 +113,12 @@ pub struct Travelers {
     pub kids: u8,
 }
 
+impl Default for Travelers {
+    fn default() -> Self {
+        Self { adults: 2, kids: 0 }
+    }
+}
+
 /// Client → server request payload. Posted to `/api/plan-trip` by the form
 /// component (Phase 4). `duration_days` is clamped to 1..=14 server-side.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -124,8 +132,26 @@ pub struct Preferences {
     pub green_travel: bool,
 }
 
+impl Default for Preferences {
+    /// The defaults the SVG mockup encodes: 5 days in March, interest in
+    /// Food + Beaches, 2 adults / 0 kids, Moderate pace, Mid budget, green
+    /// travel on. Phase 4's `use_signal(Preferences::default)` initialises the
+    /// form with these values so the empty state already matches the mockup.
+    fn default() -> Self {
+        Self {
+            duration_days: 5,
+            month: Month::March,
+            interests: vec![Interest::Food, Interest::Beaches],
+            travelers: Travelers::default(),
+            pace: Pace::Moderate,
+            budget_tier: BudgetTier::Mid,
+            green_travel: true,
+        }
+    }
+}
+
 /// Coarse activity bucket. surfaced as a label/icon in the timeline (Phase 4).
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Category {
     Food,
     Nature,
