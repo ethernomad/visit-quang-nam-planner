@@ -1,0 +1,13 @@
+{
+  "name": "visit-quang-nam-planner",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "tailwind:watch": "@tailwindcss/cli -i ./input.css -o ./assets/tailwind.css --watch",
+    "tailwind:build": "@tailwindcss/cli -i ./input.css -o ./assets/tailwind.css"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.1",
+    "tailwindcss": "^4.3.1"
+  }
+}
