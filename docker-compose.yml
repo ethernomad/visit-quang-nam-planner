@@ -1,0 +1,17 @@
+# Local convenience runner for the Visit Quang Nam AI Trip Planner.
+# Both API keys are required at runtime (see .env.example). The `${VAR:?...}`
+# form fails fast with a clear message if a key is missing, rather than 500-ing
+# on the first /api/plan-trip request.
+services:
+  planner:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY must be set — see .env.example}
+      OPENCODE_API_KEY: ${OPENCODE_API_KEY:?OPENCODE_API_KEY must be set — see .env.example}
+      CORPUS_PATH: /app/data/corpus.json
+      PORT: "8080"
+      # Optional overrides (defaults live in the binary):
+      # OPENCODE_BASE_URL: https://opencode.ai/zen/v1
+      # OPENCODE_MODEL: opencode/big-pickle

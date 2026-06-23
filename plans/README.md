@@ -17,12 +17,12 @@ prior phases.
 | Phase | File | Status | Goal |
 |-------|------|--------|------|
 | 0 — Scaffold | — | ✅ done | Repo, Cargo.toml, Tailwind, AGENTS.md, hello world |
-| 1 — Ingest + corpus | [`phase-1-ingest.md`](./phase-1-ingest.md) | ⏳ pending | `build_corpus.rs` pulls WP REST, chunks, embeds, writes `corpus.json` |
-| 2 — Retrieval | [`phase-2-retrieval.md`](./phase-2-retrieval.md) | ⏳ pending | `Retriever` trait + `InMemoryRetriever` with cosine search tests |
-| 3 — LLM orchestration | [`phase-3-llm.md`](./phase-3-llm.md) | ⏳ pending | `plan_trip` server fn returns typed `Itinerary` (JSON-schema validated) |
-| 4 — UI | [`phase-4-ui.md`](./phase-4-ui.md) | ⏳ pending | Form, day tabs, timeline, summary, suggestions matching the SVG mockup |
-| 5 — Polish | [`phase-5-polish.md`](./phase-5-polish.md) | ⏳ pending | Loading states, error surfacing, sustainability score, EN strings |
-| 6 — Ship | [`phase-6-ship.md`](./phase-6-ship.md) | ⏳ pending | Dockerfile, README, demo link |
+| 1 — Ingest + corpus | [`phase-1-ingest.md`](./phase-1-ingest.md) | ✅ done | `build_corpus.rs` pulls WP REST, chunks, embeds, writes `corpus.json` |
+| 2 — Retrieval | [`phase-2-retrieval.md`](./phase-2-retrieval.md) | ✅ done | `Retriever` trait + `InMemoryRetriever` with cosine search tests |
+| 3 — LLM orchestration | [`phase-3-llm.md`](./phase-3-llm.md) | ✅ done | `plan_trip` server fn returns typed `Itinerary` (JSON-schema validated) |
+| 4 — UI | [`phase-4-ui.md`](./phase-4-ui.md) | ✅ done | Form, day tabs, timeline, summary, suggestions matching the SVG mockup |
+| 5 — Polish | [`phase-5-polish.md`](./phase-5-polish.md) | ✅ done | Loading states, error surfacing, sustainability score, EN strings |
+| 6 — Ship | [`phase-6-ship.md`](./phase-6-ship.md) | ✅ done | Dockerfile, README, demo link |
 
 ## Cross-phase rules (apply to all plans)
 
