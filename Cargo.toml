@@ -24,6 +24,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 anyhow = "1"
 futures = "0.3"
+async-trait = { version = "0.1", optional = true }
 
 # Server-only deps — kept optional so they're excluded from the wasm client
 async-openai = { version = "0.27", optional = true }
@@ -45,5 +46,6 @@ server = [
     "dep:scraper",
     "dep:thiserror",
     "dep:tiktoken-rs",
+    "dep:async-trait",
 ]
 
