@@ -6,12 +6,24 @@ authors = ["Jonathan Brown <jbrown@visitquangnam.com>"]
 description = "AI-powered personalized trip planner for Quang Nam, Vietnam"
 license = "MIT"
 
+[lib]
+name = "visit_quang_nam_planner"
+path = "src/lib.rs"
+
+[[bin]]
+name = "build_corpus"
+path = "src/bin/build_corpus.rs"
+required-features = ["server"]
+
 [dependencies]
 dioxus = { version = "0.7", features = ["fullstack", "router"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+anyhow = "1"
+futures = "0.3"
 
 # Server-only deps — kept optional so they're excluded from the wasm client
 async-openai = { version = "0.27", optional = true }
@@ -19,6 +31,7 @@ reqwest = { version = "0.12", features = ["json"], optional = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"], optional = true }
 scraper = { version = "0.20", optional = true }
 thiserror = { version = "2", optional = true }
+tiktoken-rs = { version = "0.6", optional = true }
 
 [features]
 # Fullstack default: client (web) + server binaries both build from this one crate
@@ -31,4 +44,6 @@ server = [
     "dep:tokio",
     "dep:scraper",
     "dep:thiserror",
+    "dep:tiktoken-rs",
 ]
+
