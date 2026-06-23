@@ -207,6 +207,19 @@ pub struct TripSummary {
     /// 0..=100 — the LLM scores this from the green-travel choices it made.
     /// `post_validate` caps at 100; the UI renders a sustainability badge.
     pub sustainability_score: u8,
+    /// Phase 5: per-contribution breakdown of `sustainability_score`, e.g.
+    /// `[("Eco-certified lodging", 30), ("Local food", 20), ...]`. The LLM
+    /// is asked (but not strictly required) to return this in
+    /// `prompts::SYSTEM_PROMPT`. Defaults to empty when the model omits it
+    /// so older responses (and the pre-Phase-5 fixture) still parse — the
+    /// `trip_summary` UI falls back to a static tooltip when this is empty.
+    ///
+    /// Additive, schema-compatible change: serde defaults `Vec` to `[]` on
+    /// missing field, so no `#[serde(default)]` attribute is needed. Kept
+    /// as a `Vec<(String, u8)>` (not a `HashMap`) so the LLM's ordering
+    /// reaches the UI unchanged.
+    #[serde(default)]
+    pub sustainability_breakdown: Vec<(String, u8)>,
 }
 
 /// Server → client response payload. Returned by `plan_trip`; rendered by the

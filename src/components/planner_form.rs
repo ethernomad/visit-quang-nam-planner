@@ -5,18 +5,30 @@
 // The submit handler also bumps a `submit_nonce: Signal<u32>` so the
 // parent's `use_resource` re-runs even when the user re-submits the same
 // preferences (otherwise Dioxus caches the identical closure result).
+//
+// Phase 5 polish:
+//   - Submit button uses the `.btn-plan` Tailwind component class and is
+//     `disabled` while a request is pending (prevents double-submit).
+//   - Month dropdown shows a climate hint from `util::weather_label_for_month`
+//     so users can plan around Quang Nam's rainy season without leaving the form.
+//   - All user-facing labels hoisted to `src/copies.rs`.
 
 use dioxus::prelude::*;
 
 use visit_quang_nam_planner::domain::{BudgetTier, Interest, Month, Pace, Preferences, Travelers};
 
 use crate::components::preference_chip::PreferenceChip;
+use crate::copies;
+use crate::util::weather_label_for_month;
 
 #[derive(Props, Clone, PartialEq)]
 pub struct PlannerFormProps {
     prefs: Signal<Preferences>,
     submitted: Signal<bool>,
     submit_nonce: Signal<u32>,
+    /// Phase 5: true while a `plan_trip` request is in flight. Disables the
+    /// submit button so the user can't double-submit.
+    pending: bool,
 }
 
 const MONTHS: [Month; 12] = [
@@ -60,6 +72,7 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
     let mut prefs = props.prefs;
     let mut submitted = props.submitted;
     let mut nonce = props.submit_nonce;
+    let pending = props.pending;
 
     let mut set_travelers = move |adults_delta: i32, kids_delta: i32| {
         let mut p = prefs();
@@ -73,11 +86,14 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
     };
 
     let on_submit = move |_| {
-        submitted.set(true);
-        nonce.set(nonce() + 1);
+        if !pending {
+            submitted.set(true);
+            nonce.set(nonce() + 1);
+        }
     };
 
     let current = prefs();
+    let climate_hint = weather_label_for_month(current.month);
 
     rsx! {
         div { class: "space-y-4",
@@ -105,7 +121,7 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
                 }
                 div {
                     label { class: "block text-xs font-semibold text-[#a8d5ba] mb-1",
-                        "Month"
+                        "{copies::MONTH_LABEL}"
                     }
                     select {
                         class: "w-full bg-white text-[#1a4f3a] text-sm rounded-md px-3 py-2 border border-[#a8d5ba]/40",
@@ -125,13 +141,18 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
                             option { value: format!("{m:?}"), "{m:?}" }
                         }
                     }
+                    // Phase 5: climate hint helps the user pick a month
+                    // without leaving the form.
+                    p { class: "text-[10px] text-[#a8d5ba]/70 mt-1",
+                        "{climate_hint}"
+                    }
                 }
             }
 
             // Row 2: interest chips
             div {
                 label { class: "block text-xs font-semibold text-[#a8d5ba] mb-1.5",
-                    "Interests"
+                    "{copies::INTERESTS_LABEL}"
                 }
                 div { class: "flex flex-wrap gap-2",
                     for (interest, label) in INTERESTS.iter().copied() {
@@ -160,7 +181,7 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
                 // Travelers steppers
                 div {
                     label { class: "block text-xs font-semibold text-[#a8d5ba] mb-1.5",
-                        "Travelers"
+                        "{copies::TRAVELERS_LABEL}"
                     }
                     div { class: "flex gap-2",
                         Stepper {
@@ -181,7 +202,7 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
                 // Pace
                 div {
                     label { class: "block text-xs font-semibold text-[#a8d5ba] mb-1.5",
-                        "Pace"
+                        "{copies::PACE_LABEL}"
                     }
                     div { class: "flex flex-wrap gap-1.5",
                         for (pace, label) in PACES.iter().copied() {
@@ -206,7 +227,7 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
                 // Budget
                 div {
                     label { class: "block text-xs font-semibold text-[#a8d5ba] mb-1.5",
-                        "Budget"
+                        "{copies::BUDGET_LABEL}"
                     }
                     div { class: "flex flex-wrap gap-1.5",
                         for (tier, label) in BUDGETS.iter().copied() {
@@ -231,7 +252,7 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
                 // Green travel
                 div {
                     label { class: "block text-xs font-semibold text-[#a8d5ba] mb-1.5",
-                        "Sustainability"
+                        "{copies::SUSTAINABILITY_FORM_LABEL}"
                     }
                     label { class: "flex items-center gap-2 cursor-pointer text-white text-sm",
                         input {
@@ -244,17 +265,24 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
                                 prefs.set(p);
                             },
                         }
-                        "🌱 Green travel"
+                        "{copies::SUSTAINABILITY_TOGGLE_LABEL}"
                     }
                 }
             }
 
-            // Submit button
+            // Submit button (Phase 5: `.btn-plan` component class + disabled
+            // while pending to prevent double-submit)
             div { class: "flex justify-end",
                 button {
-                    class: "bg-[#a8d5ba] text-[#1a4f3a] font-bold text-sm px-6 py-3 rounded-full hover:bg-[#9bc8ab] transition shadow-md",
+                    class: "btn-plan",
+                    r#type: "submit",
+                    disabled: pending,
                     onclick: on_submit,
-                    "✨ Plan My Trip"
+                    if pending {
+                        "{copies::PLAN_BUTTON_PENDING}"
+                    } else {
+                        "{copies::PLAN_BUTTON}"
+                    }
                 }
             }
         }

@@ -48,6 +48,14 @@ sustainability_score accordingly.
 8. Compute `sustainability_score` 0-100 from how Green Travel-aligned the \
 chosen activities are. 100 = every activity is community/eco-aligned; \
 0 = none are.
+9. Also return `sustainability_breakdown`: an array of `[label, points]` \
+pairs (each `points` is a positive integer) that sum to approximately \
+`sustainability_score`, explaining which green choices earned the score \
+(e.g. `[\"Eco-certified lodging\", 30]`, `[\"Local food\", 20]`, \
+`[\"Low-carbon transport\", 15]`, `[\"Off-peak timing\", 17]`). Order \
+from largest contribution to smallest. If `green_travel` is false, \
+return an empty array. This field is optional for the parser (defaults \
+to `[]`) but you should always populate it when `green_travel` is true.
 
 Return ONE JSON object matching this TypeScript shape (no markdown fences, \
 no commentary, nothing outside the JSON):
@@ -76,13 +84,20 @@ no commentary, nothing outside the JSON):
     \"duration\": \"5 days / 4 nights\",
     \"destinations\": [\"Da Nang\", \"Hoi An\"],
     \"budget_estimate\": \"$520-680 per person (excl. flights)\",
-    \"sustainability_score\": 82
+    \"sustainability_score\": 82,
+    \"sustainability_breakdown\": [
+      [\"Eco-certified lodging\", 30],
+      [\"Local food\", 20],
+      [\"Low-carbon transport\", 15],
+      [\"Off-peak timing\", 17]
+    ]
   }
 }
 
-The `estimated_cost_vnd` and `duration_minutes` fields are optional; you may \
-omit them when unknown. Every other field is required. Do not add fields \
-outside this shape.";
+The `estimated_cost_vnd`, `duration_minutes`, and \
+`sustainability_breakdown` fields are optional; you may omit them when \
+unknown or when `green_travel` is false. Every other field is required. \
+Do not add fields outside this shape.";
 
 /// Build the per-request user prompt: preferences as YAML + the retrieved
 /// chunks (id, title, category, text, source_url) + a final instruction.
@@ -159,6 +174,15 @@ mod tests {
     fn system_prompt_has_required_placeholders() {
         assert!(SYSTEM_PROMPT.contains("{duration}"));
         assert!(SYSTEM_PROMPT.contains("{month}"));
+    }
+
+    #[test]
+    fn system_prompt_asks_for_sustainability_breakdown() {
+        // Phase 5: the prompt must request `sustainability_breakdown` so the
+        // UI tooltip can render a per-contribution explanation. Falls back
+        // to a static string when the model omits it (additive schema).
+        assert!(SYSTEM_PROMPT.contains("sustainability_breakdown"));
+        assert!(SYSTEM_PROMPT.contains("green_travel"));
     }
 
     #[test]

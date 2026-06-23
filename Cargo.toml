@@ -25,6 +25,10 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 anyhow = "1"
 futures = "0.3"
 async-trait = { version = "0.1", optional = true }
+# wasm-compatible timers for the client-side 8s loading hint and 60s hard cap
+# (Phase 5). Non-optional: the client build needs it; `tokio::time` is
+# server-only and not in the wasm target.
+gloo-timers = { version = "0.3", features = ["futures"] }
 
 # Server-only deps — kept optional so they're excluded from the wasm client
 async-openai = { version = "0.27", optional = true }

@@ -1,2 +1,16 @@
 @import "tailwindcss";
 @source "./src/**/*.{rs,html,css}";
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@layer components {
+  .btn-plan {
+    @apply bg-[#a8d5ba] text-[#1a4f3a] font-bold text-sm px-6 py-3 rounded-full hover:bg-[#9bc8ab] transition disabled:opacity-50 disabled:cursor-not-allowed shadow-md;
+  }
+  .shimmer {
+    @apply bg-gradient-to-r from-[#e8f0eb] via-[#f3f8f3] to-[#e8f0eb] bg-[length:200%_100%] animate-[shimmer_1.5s_ease-in-out_infinite];
+  }
+}

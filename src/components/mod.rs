@@ -17,6 +17,7 @@
 
 pub mod activity_row;
 pub mod day_card;
+pub mod error_box;
 pub mod itinerary_view;
 pub mod planner_form;
 pub mod preference_chip;

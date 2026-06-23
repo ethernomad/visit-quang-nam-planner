@@ -60,6 +60,12 @@
     "duration": "2 days / 1 night",
     "destinations": ["Hoi An", "An Bang", "My Son", "Tra Que", "Dong"],
     "budget_estimate": "$120-180 per person (excl. flights)",
-    "sustainability_score": 88
+    "sustainability_score": 88,
+    "sustainability_breakdown": [
+      ["Community homestay", 30],
+      ["Local food", 20],
+      ["Low-carbon transport", 15],
+      ["Off-peak timing", 23]
+    ]
   }
 }

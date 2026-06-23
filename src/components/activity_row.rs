@@ -13,6 +13,9 @@ use dioxus::prelude::*;
 use visit_quang_nam_planner::domain::Activity;
 use visit_quang_nam_planner::domain::format::{category_style, format_duration, format_price};
 
+use crate::copies;
+use crate::util::has_read_more;
+
 /// `is_last` controls whether the dashed connector line below the dot is
 /// drawn — the bottom row of a day has no successor to connect to.
 #[derive(Props, Clone, PartialEq)]
@@ -27,7 +30,7 @@ pub fn ActivityRow(props: ActivityRowProps) -> Element {
     let (icon, label, cat_classes) = category_style(&act.category);
     let price = format_price(act.estimated_cost_vnd);
     let duration = format_duration(act.duration_minutes);
-    let has_link = !act.source_url.is_empty();
+    let has_link = has_read_more(&act.source_url);
 
     rsx! {
         div { class: "flex gap-3 pb-6 last:pb-0",
@@ -82,7 +85,7 @@ pub fn ActivityRow(props: ActivityRowProps) -> Element {
                         href: act.source_url.clone(),
                         target: "_blank",
                         rel: "noopener noreferrer",
-                        "↳ Read more on visitquangnam.com"
+                        "{copies::READ_MORE}"
                     }
                 }
             }

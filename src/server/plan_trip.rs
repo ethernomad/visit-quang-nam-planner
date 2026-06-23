@@ -283,6 +283,7 @@ mod tests {
                 destinations: vec!["Hoi An".into()],
                 budget_estimate: "$500".into(),
                 sustainability_score: score,
+                sustainability_breakdown: Vec::new(),
             },
         }
     }

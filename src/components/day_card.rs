@@ -1,6 +1,11 @@
 // `DayCard` — renders a single `DayPlan`: gradient header strip with day
 // number badge, title, date hint + weather chip, then a timeline of
 // `ActivityRow`s joined by the dashed-line rail.
+//
+// Phase 5: the zero-activities message is hoisted to `copies.rs` as
+// `NO_ACTIVITIES_HINT` ("No activities planned for this day. Try adjusting
+// your interests.") and extracted into a pure helper `empty_day_message()`
+// so the rule has a unit test that doesn't need a DOM.
 
 use dioxus::prelude::*;
 
@@ -8,6 +13,7 @@ use visit_quang_nam_planner::domain::DayPlan;
 use visit_quang_nam_planner::domain::format::day_header_gradient;
 
 use crate::components::activity_row::ActivityRow;
+use crate::copies;
 
 #[derive(Props, Clone, PartialEq)]
 pub struct DayCardProps {
@@ -47,7 +53,7 @@ pub fn DayCard(props: DayCardProps) -> Element {
             div { class: "px-6 py-5",
                 if day.activities.is_empty() {
                     p { class: "text-sm text-[#6b8a78] italic",
-                        "No activities planned for this day."
+                        "{empty_day_message()}"
                     }
                 } else {
                     for (i, act) in day.activities.iter().enumerate() {
@@ -60,5 +66,23 @@ pub fn DayCard(props: DayCardProps) -> Element {
                 }
             }
         }
+    }
+}
+
+/// The message shown when a day has no activities. Extracted from the
+/// component so the rule has a unit test (Phase 5 §"Empty / edge cases").
+pub fn empty_day_message() -> &'static str {
+    copies::NO_ACTIVITIES_HINT
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_day_message_matches_plan_spec() {
+        let msg = empty_day_message();
+        assert!(msg.contains("No activities planned"));
+        assert!(msg.contains("adjusting your interests"));
     }
 }
