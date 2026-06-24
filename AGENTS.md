@@ -5,6 +5,13 @@ This repo builds the AI Personalized Trip Planner described in
 
 The assistant working in this repo MUST follow these rules.
 
+> The system's architecture (module layout, request lifecycle, the
+> retrieval/LLM seams, feature gating, persistence model) is documented
+> in [`ARCHITECTURE.md`](./ARCHITECTURE.md). That file **MUST be kept
+> up-to-date** with the code — any change to one of the concerns it
+> covers requires a matching edit in the same PR. Treat `AGENTS.md` as
+> the contract and `ARCHITECTURE.md` as the map.
+
 ## Tech stack (locked)
 
 - **Framework:** Dioxus 0.7 fullstack — single crate, wasm client + axum
