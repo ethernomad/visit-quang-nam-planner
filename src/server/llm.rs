@@ -102,12 +102,6 @@ impl LlmClient {
             timeout,
         })
     }
-
-    /// Configured model name (exposed for diagnostics/logging in `plan_trip`).
-    #[allow(dead_code)]
-    pub fn model(&self) -> &str {
-        &self.model
-    }
 }
 
 #[async_trait]
@@ -160,25 +154,73 @@ impl LlmClient {
             .and_then(|c| c.message.content)
             .ok_or_else(|| anyhow::anyhow!("LLM returned no message content"))?;
 
-        serde_json::from_str::<T>(&content).map_err(|e| {
-            // Wrap with the raw payload so the user/operator can see what
-            // tripped the model — don't lose it. `post_validate` is the
-            // authoritative guardrail; this is the parse-time one.
-            anyhow::anyhow!(
-                "failed to parse LLM JSON into {}: {e}\n--- raw model output ---\n{content}",
-                std::any::type_name::<T>()
-            )
-        })
+        parse_llm_json::<T>(&content)
     }
 }
 
-/// Convenience free fn used outside the trait object context. Kept so callers
-/// with a concrete `&LlmClient` can request the itinerary with one call.
-#[allow(dead_code)]
-pub async fn complete_itinerary(
-    llm: &dyn LlmCompleter,
-    system: &str,
-    user: &str,
-) -> anyhow::Result<Itinerary> {
-    llm.complete_itinerary(system, user).await
+/// Parse the LLM's raw JSON response into `T`, wrapping the deserialise error
+/// with the offending payload so the operator never loses what the model
+/// actually returned. `post_validate` is the authoritative guardrail on the
+/// `Itinerary` shape; this is the parse-time one. Extracted from
+/// `complete_json` so the error-wrapping contract is unit-testable without a
+/// network round-trip (audit #12).
+fn parse_llm_json<T: DeserializeOwned>(content: &str) -> anyhow::Result<T> {
+    serde_json::from_str::<T>(content).map_err(|e| {
+        anyhow::anyhow!(
+            "failed to parse LLM JSON into {}: {e}\n--- raw model output ---\n{content}",
+            std::any::type_name::<T>()
+        )
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_llm_json;
+    use visit_quang_nam_planner::domain::Itinerary;
+
+    // A minimal-but-schema-valid `Itinerary` JSON. Kept small so the
+    // happy-path parse test stays robust to domain field additions; only
+    // the fields `Itinerary` actually requires are present (`TripSummary`
+    // has `#[serde(default)]` on the optional `sustainability_breakdown`).
+    fn valid_itinerary_json() -> String {
+        serde_json::json!({
+            "days": [],
+            "summary": {
+                "duration": "0 days",
+                "destinations": [],
+                "budget_estimate": "$0",
+                "sustainability_score": 0
+            }
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn parse_llm_json_returns_ok_for_valid_json() {
+        let json = valid_itinerary_json();
+        let parsed = parse_llm_json::<Itinerary>(&json);
+        assert!(parsed.is_ok(), "valid JSON should parse cleanly");
+    }
+
+    #[test]
+    fn parse_llm_json_preserves_raw_output_on_error() {
+        // A string that is clearly not JSON. The point of this error shape
+        // (per audit #12) is that the raw model output is preserved in the
+        // error message so an operator can see what tripped the model.
+        let raw = "{ not valid json";
+        let err = parse_llm_json::<Itinerary>(raw).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("failed to parse LLM JSON"),
+            "error must identify the failure: {msg}"
+        );
+        assert!(
+            msg.contains(raw),
+            "error must preserve the raw model output, got: {msg}"
+        );
+        assert!(
+            msg.contains(std::any::type_name::<Itinerary>()),
+            "error must name the target type, got: {msg}"
+        );
+    }
 }
