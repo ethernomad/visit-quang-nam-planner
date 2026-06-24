@@ -112,8 +112,7 @@ never bake them into the image.
 
 - [`AGENTS.md`](./AGENTS.md) — the locked tech stack, server-only-dep gating,
   and the commands to run before considering a task complete.
-- [`plans/README.md`](./plans/README.md) — the phased delivery index (Phase 0
-  through Phase 6).
+- All six phases (Phase 0 — Scaffold through Phase 6 — Ship) are delivered.
 - `src/` — `app.rs` (root component), `components/`, `domain/`, `ingest/`,
   `retrieval/`, `server/`, and the `build_corpus` xtask at `src/bin/`.
 - `data/corpus.json` — the committed RAG corpus (user-generated via

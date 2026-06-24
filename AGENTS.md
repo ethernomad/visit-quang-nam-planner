@@ -1,7 +1,7 @@
 # Visit Quang Nam AI Trip Planner
 
-This repo builds the AI Personalized Trip Planner described in
-[`plan.md`](./plan.md) as a standalone Dioxus 0.7 fullstack web app.
+This repo builds the Visit Quang Nam AI Personalized Trip Planner as a
+standalone Dioxus 0.7 fullstack web app.
 
 The assistant working in this repo MUST follow these rules.
 
@@ -127,6 +127,6 @@ assets/
 4. **Phase 3 — LLM orchestration:** `plan_trip` server fn returns typed `Itinerary`; JSON-schema validated.
 5. **Phase 4 — UI:** form, day tabs, timeline, summary, "More ideas" footer
    row (replaces the SVG mockup's "AI Recommended For You" sidebar — see
-   `src/components/trip_summary.rs` and `plans/phase-4-ui.md`).
+    `src/components/trip_summary.rs`).
 6. **Phase 5 — Polish:** loading states, error surfacing, sustainability score, EN strings.
 7. **Phase 6 — Ship:** Dockerfile, README demo link.

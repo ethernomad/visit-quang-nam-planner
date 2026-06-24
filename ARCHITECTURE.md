@@ -8,8 +8,7 @@
 > you read this and the code disagrees, fix one of them in the same PR.
 >
 > Cross-references: [`AGENTS.md`](./AGENTS.md) (locked tech stack, commands,
-> and contributor rules) and [`plans/`](./plans/) (per-phase delivery
-> notes, now all shipped). `AGENTS.md` is the contract; this file is the
+> and contributor rules). `AGENTS.md` is the contract; this file is the
 > map.
 
 ## 1. Overview
