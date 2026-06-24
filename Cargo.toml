@@ -33,7 +33,7 @@ gloo-timers = { version = "0.3", features = ["futures"] }
 # Server-only deps — kept optional so they're excluded from the wasm client
 async-openai = { version = "0.27", optional = true }
 reqwest = { version = "0.12", features = ["json"], optional = true }
-tokio = { version = "1", features = ["macros", "rt-multi-thread"], optional = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync"], optional = true }
 scraper = { version = "0.20", optional = true }
 thiserror = { version = "2", optional = true }
 tiktoken-rs = { version = "0.6", optional = true }

@@ -131,9 +131,9 @@ pub fn build_user_prompt(prefs: &Preferences, chunks: &[Chunk]) -> String {
 fn format_preferences(p: &Preferences) -> String {
     let mut s = String::new();
     s.push_str(&format!("duration_days: {}\n", p.duration_days));
-    s.push_str(&format!("month: {:?}\n", p.month));
-    s.push_str(&format!("pace: {:?}\n", p.pace));
-    s.push_str(&format!("budget_tier: {:?}\n", p.budget_tier));
+    s.push_str(&format!("month: {}\n", p.month.as_str()));
+    s.push_str(&format!("pace: {}\n", p.pace.as_str()));
+    s.push_str(&format!("budget_tier: {}\n", p.budget_tier.as_str()));
     s.push_str(&format!("green_travel: {}\n", p.green_travel));
     s.push_str(&format!(
         "travelers: {{ adults: {}, kids: {} }}\n",
@@ -144,7 +144,7 @@ fn format_preferences(p: &Preferences) -> String {
         s.push_str(" []\n");
     } else {
         for i in &p.interests {
-            s.push_str(&format!("\n  - {:?}", i));
+            s.push_str(&format!("\n  - {}", i.as_str()));
         }
         s.push('\n');
     }
@@ -226,5 +226,38 @@ mod tests {
         p.interests = Vec::new();
         let s = format_preferences(&p);
         assert!(s.contains("interests: []"));
+    }
+
+    #[test]
+    fn format_preferences_humanizes_green_travel_interest() {
+        // Locked contract: `Interest::GreenTravel` is rendered as
+        // "Green travel" (matching the WP category string the model sees in
+        // the chunks block), NOT Rust's Debug `GreenTravel`. A regression
+        // that re-introduces `{:?}` would surface here.
+        let mut p = sample_prefs();
+        p.interests = vec![Interest::GreenTravel];
+        let s = format_preferences(&p);
+        assert!(s.contains("- Green travel"));
+        assert!(!s.contains("GreenTravel"));
+    }
+
+    #[test]
+    fn format_preferences_renders_each_enum_via_as_str() {
+        // Belt-and-braces: every enum used in the prompt has a stable
+        // humanized name, decoupled from `#[derive(Debug)]`.
+        let p = Preferences {
+            duration_days: 1,
+            month: Month::September,
+            interests: vec![Interest::Culture],
+            travelers: Travelers { adults: 1, kids: 0 },
+            pace: Pace::Active,
+            budget_tier: BudgetTier::Luxury,
+            green_travel: false,
+        };
+        let s = format_preferences(&p);
+        assert!(s.contains("month: September"));
+        assert!(s.contains("pace: Active"));
+        assert!(s.contains("budget_tier: Luxury"));
+        assert!(s.contains("- Culture"));
     }
 }

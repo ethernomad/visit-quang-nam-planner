@@ -68,11 +68,23 @@ const TOP_K: usize = 8;
 pub async fn plan_trip(prefs: Preferences) -> Result<Itinerary, ServerFnError> {
     #[cfg(feature = "server")]
     {
+        use crate::server::shared_concurrency_limit;
         let retriever = shared_retriever().map_err(|e| ServerFnError::new(e.to_string()))?;
         let llm = shared_llm().map_err(|e| ServerFnError::new(e.to_string()))?;
-        plan_trip_inner(&prefs, retriever.as_ref(), llm.as_ref())
+        // Acquire a concurrency permit before driving the LLM call. The
+        // semaphore (audit #10) caps in-flight `plan_trip` work so a request
+        // flood doesn't spawn unbounded LLM traffic; queued requests wait
+        // here for a free permit. Held across the `await` and dropped on
+        // return via `?`/explicit `drop` so the permit is released on both
+        // success and error paths. The per-call `LlmClient` timeout (audit
+        // #4) bounds how long a single permit can be held.
+        let permit = shared_concurrency_limit()
+            .acquire_owned()
             .await
-            .map_err(|e| ServerFnError::new(e.to_string()))
+            .map_err(|e| ServerFnError::new(format!("concurrency gate failed: {e}")))?;
+        let result = plan_trip_inner(&prefs, retriever.as_ref(), llm.as_ref()).await;
+        drop(permit);
+        result.map_err(|e| ServerFnError::new(e.to_string()))
     }
     // Under `web`-only, the `#[post]` macro rewrites this body to a
     // `client_query` call before it ever reaches the type checker. This
@@ -103,7 +115,7 @@ pub async fn plan_trip_inner(
 
     let system = prompts::SYSTEM_PROMPT
         .replace("{duration}", &prefs.duration_days.to_string())
-        .replace("{month}", &format!("{:?}", prefs.month));
+        .replace("{month}", prefs.month.as_str());
     let user = prompts::build_user_prompt(prefs, &chunks);
 
     let itinerary = llm
@@ -136,26 +148,54 @@ fn validate_prefs(p: &Preferences) -> anyhow::Result<()> {
 /// Build the retrieval query string. Hand-rolled (not serde_yaml) because the
 /// retriever just embeds any natural-language string — describing the
 /// preferences as a sentence works better for cosine against post-text
-/// embeddings than a YAML blob would.
+/// embeddings than a YAML blob would. Each enum is rendered via its `as_str`
+/// (decoupled from Rust's `Debug` impl — see `domain::Interest::as_str`); the
+/// interests vec is comma-joined so embeddings see a clean natural-language
+/// fragment instead of `[Variant, Variant]` Debug noise.
 #[cfg(feature = "server")]
 fn build_retrieval_query(p: &Preferences) -> String {
+    let interests = p
+        .interests
+        .iter()
+        .map(|i| i.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
     format!(
-        "{}-day {} trip in {:?}, {:?} pace, {:?} budget, {} adults + {} kids, interests: {:?}",
+        "{}-day {} trip in {}, {} pace, {} budget, {} adults + {} kids, interests: {}",
         p.duration_days,
         if p.green_travel { "eco-friendly" } else { "" },
-        p.month,
-        p.pace,
-        p.budget_tier,
+        p.month.as_str(),
+        p.pace.as_str(),
+        p.budget_tier.as_str(),
         p.travelers.adults,
         p.travelers.kids,
-        p.interests,
+        interests,
     )
 }
+
+/// Host the LLM is allowed to cite as a `source_url`. Matches the WP REST
+/// source (`visitquangnam.com` `/wp/v2/posts` → `link`) the corpus was built
+/// from. Tightened in `post_validate` per the audit so a malformed chunk or
+/// an off-domain hallucinated URL both fail fast with a clear message.
+#[cfg(feature = "server")]
+const ALLOWED_URL_PREFIX: &str = "https://visitquangnam.com/";
 
 /// Enforce the system prompt's claims post-hoc. The LLM may still invent a
 /// URL despite rule 2; this rejects the response with a clear error so the
 /// API call (not the UI) breaks. Returns the offending field in the error so
 /// the operator can grep the cached chunk set.
+///
+/// URL guards (audit #9): the allowed set is built from chunk URLs that are
+/// themselves non-empty AND on `visitquangnam.com`; any chunk failing that
+/// filter is dropped from the allowed set (a malformed corpus can never seed
+/// `""` as a "legitimate" URL). Then every activity URL is checked for:
+///   1. non-emptiness,
+///   2. on-domain prefix (`https://visitquangnam.com/`),
+///   3. membership in the filtered chunk-set.
+///
+/// Each step emits its own error so the operator can tell a malformed
+/// activity URL from a true hallucination.
+///
 #[cfg(feature = "server")]
 fn post_validate(itin: &Itinerary, prefs: &Preferences, chunks: &[Chunk]) -> anyhow::Result<()> {
     if itin.days.len() != prefs.duration_days as usize {
@@ -165,14 +205,28 @@ fn post_validate(itin: &Itinerary, prefs: &Preferences, chunks: &[Chunk]) -> any
             prefs.duration_days
         );
     }
-    let allowed_urls: HashSet<&str> = chunks.iter().map(|c| c.source_url.as_str()).collect();
+    let allowed_urls: HashSet<&str> = chunks
+        .iter()
+        .map(|c| c.source_url.as_str())
+        .filter(|u| !u.is_empty() && u.starts_with(ALLOWED_URL_PREFIX))
+        .collect();
     for day in &itin.days {
         for act in &day.activities {
+            if act.source_url.is_empty() {
+                anyhow::bail!("activity '{}' has empty source_url", act.title);
+            }
+            if !act.source_url.starts_with(ALLOWED_URL_PREFIX) {
+                anyhow::bail!(
+                    "activity '{}' references non-visitquangnam.com source_url {}",
+                    act.title,
+                    act.source_url,
+                );
+            }
             if !allowed_urls.contains(act.source_url.as_str()) {
                 anyhow::bail!(
                     "activity '{}' references unknown source_url {}",
                     act.title,
-                    act.source_url
+                    act.source_url,
                 );
             }
         }
@@ -332,6 +386,54 @@ mod tests {
             80,
         );
         assert!(post_validate(&itin, &p, &chunks).is_ok());
+    }
+
+    // --- post_validate URL guards (audit #9) -----------------------------
+
+    #[test]
+    fn post_validate_rejects_empty_source_url() {
+        // An LLM that returns an activity with source_url="" must be rejected
+        // before the allowed-set membership check, with a clear message.
+        let p = prefs(1);
+        let chunks = vec![chunk_with_url("https://visitquangnam.com/a")];
+        let itin = itinerary_with(&[""], 1, 50);
+        let err = post_validate(&itin, &p, &chunks).unwrap_err();
+        assert!(err.to_string().contains("empty source_url"));
+    }
+
+    #[test]
+    fn post_validate_rejects_non_visitquangnam_url() {
+        // An LLM that fabricates an on-looking but off-domain URL
+        // (e.g. https://example.com/foo) must be rejected with the
+        // `non-visitquangnam.com` message, NOT a generic "unknown".
+        let p = prefs(1);
+        let chunks = vec![chunk_with_url("https://visitquangnam.com/a")];
+        let itin = itinerary_with(&["https://example.com/foo"], 1, 50);
+        let err = post_validate(&itin, &p, &chunks).unwrap_err();
+        assert!(err.to_string().contains("non-visitquangnam.com"));
+        assert!(err.to_string().contains("https://example.com/foo"));
+    }
+
+    #[test]
+    fn post_validate_rejects_empty_chunk_url_does_not_seed_allowed() {
+        // A malformed chunk with source_url="" must NOT seed "" as an
+        // allowed URL — the chunk-side filter is what closes the audit's
+        // silent-allow hole. The activity with "" then trips the activity-
+        // side empty check first; this test proves the chunk filter is in
+        // place by adding an *also-empty* real activity that would be
+        // accepted if the chunk-side filter weren't there.
+        let p = prefs(1);
+        let chunks = vec![
+            chunk_with_url(""),
+            chunk_with_url("https://visitquangnam.com/a"),
+        ];
+        let itin = itinerary_with(&[""], 1, 50);
+        let res = post_validate(&itin, &p, &chunks);
+        assert!(res.is_err());
+        // Either guard could trip first on the activity side; the point is
+        // the response is rejected, not silently accepted.
+        let msg = res.unwrap_err().to_string();
+        assert!(msg.contains("empty source_url") || msg.contains("unknown source_url"));
     }
 
     // --- plan_trip_inner end-to-end with mocks ----------------------------

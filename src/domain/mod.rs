@@ -71,6 +71,24 @@ pub enum Interest {
     GreenTravel,
 }
 
+impl Interest {
+    /// Human-readable label as the LLM should see it in the prompt. Matches
+    /// the WordPress category string emitted in the chunks block by
+    /// `prompts::build_user_prompt` — notably `GreenTravel` becomes
+    /// `"Green travel"` so the retrieval/prompt loop never produces the
+    /// camelCase `"GreenTravel"` Rust's `Debug` impl would emit.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Interest::Food => "Food",
+            Interest::Beaches => "Beaches",
+            Interest::Culture => "Culture",
+            Interest::Nature => "Nature",
+            Interest::Wellness => "Wellness",
+            Interest::GreenTravel => "Green travel",
+        }
+    }
+}
+
 /// Daily activity pace. Drives the per-day activity count in the prompt
 /// (Slow ≤3, Moderate 4, Active 5).
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -80,6 +98,17 @@ pub enum Pace {
     Active,
 }
 
+impl Pace {
+    /// Prompt-facing label. See [`Interest::as_str`] for rationale.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Pace::Slow => "Slow",
+            Pace::Moderate => "Moderate",
+            Pace::Active => "Active",
+        }
+    }
+}
+
 /// Spending tier. Affects which restaurants/hotels the LLM picks from the
 /// grounded chunks.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -87,6 +116,17 @@ pub enum BudgetTier {
     Backpacker,
     Mid,
     Luxury,
+}
+
+impl BudgetTier {
+    /// Prompt-facing label. See [`Interest::as_str`] for rationale.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            BudgetTier::Backpacker => "Backpacker",
+            BudgetTier::Mid => "Mid",
+            BudgetTier::Luxury => "Luxury",
+        }
+    }
 }
 
 /// Month of travel. Used by the LLM for weather context and the per-day
@@ -105,6 +145,26 @@ pub enum Month {
     October,
     November,
     December,
+}
+
+impl Month {
+    /// Prompt-facing label. See [`Interest::as_str`] for rationale.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Month::January => "January",
+            Month::February => "February",
+            Month::March => "March",
+            Month::April => "April",
+            Month::May => "May",
+            Month::June => "June",
+            Month::July => "July",
+            Month::August => "August",
+            Month::September => "September",
+            Month::October => "October",
+            Month::November => "November",
+            Month::December => "December",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

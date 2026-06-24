@@ -191,13 +191,29 @@ Phase 1 corpus builder:
 
 ### `src/server/` (bin-internal, server-only)
 
-- `mod` — `shared_retriever()` and `shared_llm()`. Both use
-  `OnceLock<anyhow::Result<Arc<dyn …>>>`: the first call initialises;
-  if init fails the **error is cached for the process lifetime** and
-  subsequent calls return the same error without retrying (MVP choice —
-  operator restarts the server). `CORPUS_PATH` configures the corpus
-  file (default `data/corpus.json`). `retriever_smoke` is a `#[server]`
-  smoke endpoint returning the chunk count.
+- `mod` — `shared_retriever()`, `shared_llm()`, and
+  `shared_concurrency_limit()` — process singletons.
+  - `shared_retriever()` / `shared_llm()` use
+    `OnceLock<anyhow::Result<Arc<dyn …>>>`: the first call initialises;
+    if init fails the **error is cached for the process lifetime** and
+    subsequent calls return the same error without retrying (MVP choice
+    — operator restarts the server). **Every** subsequent failing call
+    re-emits a `tracing::error!("… init failed (cached from boot)")` so
+    an operator who missed the boot log still gets a per-request
+    diagnostic (audit #7).
+  - `shared_concurrency_limit()` returns a process-wide
+    `tokio::sync::Semaphore` capping concurrent `plan_trip` LLM calls
+    (default 4, env `OPENCODE_MAX_CONCURRENCY`). `plan_trip` acquires a
+    permit before driving `plan_trip_inner` and drops it on return so
+    the permit is released on both the success and error paths. This
+    bounds in-flight LLM traffic. Client-disconnect cancellation is
+    handled by axum dropping the future (propagates `Cancelled` up the
+    `.await` chain); the per-call `LlmClient` 60s timeout
+    (`OPENCODE_TIMEOUT_SECS`) bounds how long one permit can be held
+    (audit #10).
+  - `CORPUS_PATH` configures the corpus file (default
+    `data/corpus.json`). `retriever_smoke` is a `#[server]` smoke
+    endpoint returning the chunk count.
 - `plan_trip` — the `#[post("/api/plan-trip")]` server function. Body is
   gated; the orchestration core `plan_trip_inner(prefs, retriever, llm)`
   is callable directly with mocks (used by `tests/plan_trip.rs`, no
@@ -216,7 +232,21 @@ Phase 1 corpus builder:
   6. `post_validate` — rejects day-count mismatches, hallucinated
      `source_url`s (every activity URL must appear in the retrieved
      chunk set), and `sustainability_score > 100`. This is the
-     authoritative contract; parse-time is the secondary one.
+     authoritative contract; parse-time is the secondary one. URL
+     guards (audit #9): activity URLs must be non-empty AND start with
+     `https://visitquangnam.com/`; the allowed-set built from chunks is
+     itself filtered to non-empty on-domain URLs, so a malformed corpus
+     chunk (`source_url: ""`) can never seed the allowed set.
+- `llm` — `LlmCompleter` trait (non-generic, dyn-compatible) +
+  `LlmClient` built on `async-openai` pointed at `OPENCODE_BASE_URL`.
+  Per-call 60s `tokio::time::timeout` (env `OPENCODE_TIMEOUT_SECS`,
+  audit #4) bounds the chat completion so a hung Zen endpoint can't
+  hold an axum worker indefinitely.
+- `prompts` — system + user prompt assembly. Enum values are rendered
+  via each enum's `as_str()` (audit #8), not Rust's `Debug` impl, so
+  the prompt text is documented and decoupled from `#[derive(Debug)]`.
+  Notably `Interest::GreenTravel.as_str() == "Green travel"` matches
+  the WP category string the model already sees in the chunks block.
 - `llm` — `LlmCompleter` trait (non-generic, dyn-compatible) +
   `LlmClient` built on `async-openai` pointed at `OPENCODE_BASE_URL`.
 - `prompts` — system + user prompt assembly.
@@ -260,7 +290,14 @@ commit the result so the server boots offline.
    `/api/plan-trip` on the same origin.
 3. **Server function** — Dioxus' axum layer dispatches to `plan_trip`,
    which calls `shared_retriever()` + `shared_llm()` (initialised lazily,
-   errors cached) and hands off to `plan_trip_inner`.
+   errors cached — every subsequent failing request re-logs the cached
+   init error, audit #7). Before driving `plan_trip_inner`, it acquires
+   a permit from `shared_concurrency_limit()` (process-wide
+   `tokio::sync::Semaphore`, default 4, env `OPENCODE_MAX_CONCURRENCY`,
+   audit #10) so the N+1th concurrent request waits instead of piling
+   onto axum workers. The permit is dropped on return (success or
+   error). If the wasm client disconnects, axum drops the future,
+   cancelling the in-flight `.await` chain.
 4. **`plan_trip_inner`** — `validate_prefs` → `build_retrieval_query` →
    `retriever.search(query, 8)` (which calls `OpenAiEmbedder` once to
    embed the query, then cosine top-K) → `prompts::build_user_prompt` →
