@@ -26,6 +26,7 @@
 #![cfg(feature = "server")]
 
 use std::env;
+use std::time::Duration;
 
 use anyhow::Context;
 use async_openai::Client;
@@ -45,6 +46,11 @@ use visit_quang_nam_planner::domain::Itinerary;
 const DEFAULT_MODEL: &str = "opencode/big-pickle";
 /// Default Zen base URL. Overridable via `OPENCODE_BASE_URL`.
 const DEFAULT_BASE_URL: &str = "https://opencode.ai/zen/v1";
+/// Server-side cap on the chat-completion call. The wasm client's 60s
+/// cap (see `app.rs`) is the backstop; this is the authoritative guard
+/// that frees the axum worker even if the Zen endpoint hangs. Tunable
+/// via `OPENCODE_TIMEOUT_SECS`.
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Seam used by `plan_trip_inner`. The real implementation is `LlmClient`
 /// below; tests inject a `MockLlm` that returns a canned `Itinerary` so the
@@ -70,6 +76,7 @@ pub trait LlmCompleter: Send + Sync {
 pub struct LlmClient {
     client: Client<OpenAIConfig>,
     model: String,
+    timeout: Duration,
 }
 
 impl LlmClient {
@@ -81,12 +88,18 @@ impl LlmClient {
             .map_err(|_| anyhow::anyhow!("OPENCODE_API_KEY not set — cannot run planner LLM"))?;
         let base_url = env::var("OPENCODE_BASE_URL").unwrap_or_else(|_| DEFAULT_BASE_URL.into());
         let model = env::var("OPENCODE_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.into());
+        let timeout = env::var("OPENCODE_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .map(Duration::from_secs)
+            .unwrap_or(DEFAULT_TIMEOUT);
         let config = OpenAIConfig::new()
             .with_api_key(api_key)
             .with_api_base(base_url);
         Ok(Self {
             client: Client::with_config(config),
             model,
+            timeout,
         })
     }
 
@@ -132,11 +145,12 @@ impl LlmClient {
             .messages([system_msg, user_msg])
             .build()?;
 
-        let response = self
-            .client
-            .chat()
-            .create(request)
+        let response = tokio::time::timeout(self.timeout, self.client.chat().create(request))
             .await
+            .context(format!(
+                "chat completion timed out after {:?}",
+                self.timeout
+            ))?
             .context("chat completion request to LLM failed")?;
 
         let content = response

@@ -15,12 +15,19 @@
 
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
 use async_trait::async_trait;
 
 use crate::domain::{Chunk, Corpus};
 use crate::retrieval::{Embed, Retriever};
+
+/// Server-side cap on the query-embed call. Bounded so a slow OpenAI
+/// embeddings endpoint can't hold an axum worker indefinitely; the
+/// retriever logs and returns an empty result on timeout (same as any
+/// other embed failure — see `search`).
+const EMBED_QUERY_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub struct InMemoryRetriever {
     chunks: Vec<Chunk>,
@@ -57,10 +64,19 @@ impl InMemoryRetriever {
 #[async_trait]
 impl Retriever for InMemoryRetriever {
     async fn search(&self, query: &str, k: usize) -> Vec<Chunk> {
-        let q = match self.embedder.embed_query(query).await {
-            Ok(v) => v,
-            Err(e) => {
+        let q = match tokio::time::timeout(EMBED_QUERY_TIMEOUT, self.embedder.embed_query(query))
+            .await
+        {
+            Ok(Ok(v)) => v,
+            Ok(Err(e)) => {
                 tracing::error!(error = ?e, "query embed failed; returning empty result");
+                return Vec::new();
+            }
+            Err(_) => {
+                tracing::error!(
+                    timeout_secs = EMBED_QUERY_TIMEOUT.as_secs(),
+                    "query embed timed out; returning empty result"
+                );
                 return Vec::new();
             }
         };
