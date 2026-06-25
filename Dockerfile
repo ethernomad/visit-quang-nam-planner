@@ -3,15 +3,14 @@
 # fullstack: a single axum server binary that serves the wasm client + the
 # /api/* server functions).
 #
-# Toolchain note: pinned to rust:1.95-slim because rustc 1.96 is incompatible
-# with wasm-bindgen 0.2.125 (the latest version dioxus 0.7.9's bundled CLI can
-# use). On 1.96, `dx bundle` aborts at the wasm-bindgen step with
-#   "failed to find the `__wbindgen_externref_table_dealloc` function"
-# (verified: lib 0.2.125 + CLI 0.2.125 both reproduce it; no newer version
-# exists; -C target-feature=-reference-types does not fix it). 1.95 is the
-# last stable that works with wasm-bindgen 0.2.125. Bump back to latest once a
-# wasm-bindgen release fixes 1.96 compat.
-FROM rust:1.95-slim AS builder
+# Toolchain note: tracks the latest stable Rust image. The repo has no
+# rust-toolchain.toml pin and no rustup override — stable Rust is used
+# everywhere. A stray `rustflags = ["-C", "target-cpu=native"]` in a
+# user-level ~/.cargo/config.toml breaks the wasm client build (it emits host
+# CPU features invalid for wasm32-unknown-unknown); the in-repo
+# .cargo/config.toml neutralises that defensively. See README.md
+# "Troubleshooting: wasm client build failure".
+FROM rust:slim AS builder
 
 # DX Linux build deps (web target only — no webview/native GUI libs needed).
 RUN apt-get update && apt-get install -y --no-install-recommends \

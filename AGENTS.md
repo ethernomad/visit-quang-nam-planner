@@ -109,12 +109,18 @@ Notes:
   --no-default-features --features server`, then run
   `./target/release/visit-quang-nam-planner`. Serves `/api/*` only — the
   wasm client + assets are bundled solely by `dx bundle`.
-- Toolchain: `dx` 0.7.9 drives `wasm-bindgen 0.2.125`, which is
-  incompatible with rustc 1.96 (the wasm-bindgen step aborts with
-  `failed to find the __wbindgen_externref_table_dealloc function`).
-  This repo pins rustc 1.95 via `rust-toolchain.toml`; `rustup`
-  auto-installs it on first use. The Dockerfile pins `rust:1.95-slim`
-  for the same reason.
+- Toolchain: stable Rust everywhere — no `rust-toolchain.toml` pin
+  and no `rustup` directory override. The Dockerfile tracks `rust:slim`.
+  A stray `rustflags = ["-C", "target-cpu=native"]` in a user-level
+  `~/.cargo/config.toml` breaks the wasm client build (it emits host
+  CPU features invalid for `wasm32-unknown-unknown`, and wasm-bindgen
+  post-processing aborts with `failed to find the
+  __wbindgen_externref_table_dealloc function`). This repo ships a
+  `.cargo/config.toml` that defensively scopes `target-cpu=native` to
+  non-wasm targets; see README.md "Troubleshooting: wasm client build
+  failure". Earlier docs blamed a rustc 1.96 / wasm-bindgen 0.2.125
+  incompat and pinned rustc 1.95 — that was a misdiagnosis and the pin
+  has been removed.
 - For wasm-specific checks: `cargo check --target wasm32-unknown-unknown --no-default-features --features web`.
 - The `data/corpus.json` file is committed so the server boots offline;
   re-run `build_corpus` to refresh.

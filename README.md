@@ -53,20 +53,53 @@ form still renders but `/api/plan-trip` returns a 500.
 
 Alternatively, run `scripts/bootstrap.sh` to run steps 1–2 interactively.
 
-### Toolchain note (rustc 1.96)
+### Toolchain note (stable Rust)
 
-`dx serve`/`dx bundle` build the wasm client through `wasm-bindgen`, whose
-0.2.125 release (the latest compatible with dioxus 0.7.9's bundled CLI) is
-incompatible with rustc 1.96 — it aborts with
-`failed to find the __wbindgen_externref_table_dealloc function`. If your
-default toolchain is 1.96, pin a prior stable for this repo:
+This repo uses **stable Rust** everywhere — no `rust-toolchain.toml` pin and
+no `rustup override`. Contributors should run whatever their rustup default
+toolchain is (install it from https://rustup.rs if needed):
 
 ```sh
-rustup toolchain install 1.95
-rustup override set 1.95
+rustup target add wasm32-unknown-unknown
 ```
 
-The Dockerfile already pins `rust:1.95-slim` for this reason.
+The Dockerfile tracks `rust:slim` (latest stable) for the same reason.
+
+### Troubleshooting: wasm client build failure
+
+**Symptom:** `dx serve`/`dx bundle` aborts while building the wasm client with:
+
+```
+failed to find the `__wbindgen_externref_table_dealloc` function
+```
+
+**Real cause:** a user-level `~/.cargo/config.toml` (or a repo-local
+`.cargo/config.toml`) containing:
+
+```toml
+[build]
+rustflags = ["-C", "target-cpu=native"]
+```
+
+`[build]` rustflags apply to *every* target, including
+`wasm32-unknown-unknown`. `target-cpu=native` tells LLVM to emit the host
+CPU's feature set, which is invalid for the wasm target; wasm-bindgen's
+post-processing step then can't find the symbols it expects and aborts.
+
+This was previously misdiagnosed as a rustc 1.96 / wasm-bindgen 0.2.125
+incompatibility and worked around by pinning rustc 1.95. The pin and that
+narrative have been removed — the rustc version was never the problem.
+
+**Fix:** remove that rustflag, or scope it to native targets only:
+
+```toml
+[target.'cfg(not(target_family = "wasm"))']
+rustflags = ["-C", "target-cpu=native"]
+```
+
+This repo ships a `.cargo/config.toml` that does this defensively, so a
+stray user-level `target-cpu=native` won't break the wasm build here. If you
+hit this in another project, apply the same scoped form.
 
 ## Docker
 

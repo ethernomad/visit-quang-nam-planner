@@ -410,9 +410,11 @@ cargo check --target wasm32-unknown-unknown --no-default-features --features web
 > run `./dist/visit-quang-nam-planner` from `dist/`). For an API-only
 > smoke test (no browser UI): `cargo build --release
 > --no-default-features --features server`, then run
-> `./target/release/visit-quang-nam-planner`. The toolchain is pinned
-> to rustc 1.95 via `rust-toolchain.toml` (wasm-bindgen 0.2.125 is
-> incompatible with 1.96).
+> `./target/release/visit-quang-nam-planner`. The repo targets stable
+> Rust with no version pin and no `rustup` override. A stray
+> `target-cpu=native` build rustflag breaks the wasm client build —
+> see README.md "Troubleshooting: wasm client build failure" (the
+> in-repo `.cargo/config.toml` neutralises it defensively).
 
 Local dev (web client + axum server, hot-reload):
 

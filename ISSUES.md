@@ -201,14 +201,22 @@ push and PR to `master`.
 `input.css` only writes to `assets/tailwind.css`. The `assets/styles/`
 directory exists but contains nothing. Dead directory.
 
-### 15. Dockerfile toolchain pin lacks upstream issue link
+### 15. Dockerfile toolchain pin — RESOLVED (misdiagnosis)
 
-`Dockerfile` pins `rust:1.95-slim` due to a wasm-bindgen 0.2.125 / rustc
-1.96 incompat. The comment describes the symptom but does not link to the
-upstream wasm-bindgen issue or track it for removal.
+The `Dockerfile` previously pinned `rust:1.95-slim`, attributed to a
+wasm-bindgen 0.2.125 / rustc 1.96 incompatibility. That diagnosis was
+wrong. The real cause of the wasm client build failure was a user-level
+`~/.cargo/config.toml` setting `rustflags = ["-C", "target-cpu=native"]`
+under `[build]`, which applies to the `wasm32-unknown-unknown` target too
+and emits host CPU features invalid for wasm — wasm-bindgen post-processing
+then aborts with `failed to find the __wbindgen_externref_table_dealloc
+function`.
 
-**Fix:** add a link (e.g. `https://github.com/rustwasm/wasm-bindgen/issues/XXXX`)
-so someone can periodically check whether the pin can be dropped.
+**Resolved by:** deleting `rust-toolchain.toml`, switching the Dockerfile to
+`rust:slim`, removing the `rustup` directory override, and shipping a
+defensive in-repo `.cargo/config.toml` that scopes `target-cpu=native` to
+non-wasm targets. The repo now uses stable Rust everywhere with no pins or
+overrides. See README.md "Troubleshooting: wasm client build failure".
 
 ---
 
@@ -227,4 +235,4 @@ so someone can periodically check whether the pin can be dropped.
 | `plans/phase-6-ship.md` | #6 stale doc |
 | `.github/workflows/` | #13 missing |
 | `assets/styles/` | #14 dead dir |
-| `Dockerfile` | #15 untracked pin |
+| `Dockerfile` | #15 resolved (misdiagnosis) |
