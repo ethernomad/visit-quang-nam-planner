@@ -95,9 +95,26 @@ cargo run --release --bin build_corpus
 ```
 
 Notes:
-- `cargo build` alone is the server target (default features =
-  `["web","server"]`). DX splits the build internally; do not invoke
-  `--no-default-features` for daily work.
+- `cargo build` (default features `["web","server"]`) is a **type-check
+  only**, not a runnable target. It compiles both the wasm client and the
+  axum server code paths against a native host; the resulting
+  `target/release/visit-quang-nam-planner` binary is NOT runnable — it
+  links the wasm-client (`js-sys`) renderer into a native process and
+  panics at `dioxus::launch` with
+  `cannot access imported statics on non-wasm targets`. Use `dx serve --web`
+  (dev) or `dx bundle --release --platform web` (prod; then run
+  `./dist/visit-quang-nam-planner` from inside `dist/` so the server can
+  locate the bundled `public/` directory).
+- API-only smoke test (no browser UI): `cargo build --release
+  --no-default-features --features server`, then run
+  `./target/release/visit-quang-nam-planner`. Serves `/api/*` only — the
+  wasm client + assets are bundled solely by `dx bundle`.
+- Toolchain: `dx` 0.7.9 drives `wasm-bindgen 0.2.125`, which is
+  incompatible with rustc 1.96 (the wasm-bindgen step aborts with
+  `failed to find the __wbindgen_externref_table_dealloc function`).
+  This repo pins rustc 1.95 via `rust-toolchain.toml`; `rustup`
+  auto-installs it on first use. The Dockerfile pins `rust:1.95-slim`
+  for the same reason.
 - For wasm-specific checks: `cargo check --target wasm32-unknown-unknown --no-default-features --features web`.
 - The `data/corpus.json` file is committed so the server boots offline;
   re-run `build_corpus` to refresh.

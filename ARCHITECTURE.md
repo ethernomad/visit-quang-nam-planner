@@ -129,7 +129,7 @@ wasm client from pulling server-only transitive deps.
 |-----------|-----------------------------------------------------|
 | `web`     | `dioxus/web` — wasm client target                   |
 | `server`  | `dioxus/server` + every server-only optional dep    |
-| `default` | `["web", "server"]` — used by `cargo build`/`dx`   |
+| `default` | `["web", "server"]` — type-check only; **not a runnable target** (see §10) |
 
 Server-only deps (`async-openai`, `reqwest`, `tokio`, `scraper`,
 `thiserror`, `tiktoken-rs`, `async-trait`) are declared **optional** and
@@ -399,6 +399,21 @@ cargo test --all
 cargo check --target wasm32-unknown-unknown --no-default-features --features web
 ```
 
+> **`cargo build` is not a runnable target.** With default features
+> `["web","server"]`, `cargo build --release` compiles both the wasm
+> client and the axum server against a native host; the resulting
+> `target/release/visit-quang-nam-planner` links the wasm-client
+> (`js-sys`) renderer into a native process and panics at
+> `dioxus::launch` (`cannot access imported statics on non-wasm
+> targets`). It is a type-check artifact only. Run the app via `dx
+> serve --web` (dev) or `dx bundle --release --platform web` (prod;
+> run `./dist/visit-quang-nam-planner` from `dist/`). For an API-only
+> smoke test (no browser UI): `cargo build --release
+> --no-default-features --features server`, then run
+> `./target/release/visit-quang-nam-planner`. The toolchain is pinned
+> to rustc 1.95 via `rust-toolchain.toml` (wasm-bindgen 0.2.125 is
+> incompatible with 1.96).
+
 Local dev (web client + axum server, hot-reload):
 
 ```sh
@@ -418,6 +433,8 @@ Production bundle and container:
 
 ```sh
 dx bundle --release --platform web
+cd dist && ./visit-quang-nam-planner   # run from dist/ so it finds public/
+# or, containerised:
 docker compose up --build      # uses ./Dockerfile
 ```
 

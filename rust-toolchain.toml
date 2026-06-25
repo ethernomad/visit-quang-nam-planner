@@ -1,0 +1,9 @@
+# Pin rustc to 1.95 for this repo. Dioxus 0.7.9's bundled CLI drives
+# wasm-bindgen 0.2.125, whose release is incompatible with rustc 1.96
+# (`dx serve`/`dx bundle` abort at the wasm-bindgen step with
+# "failed to find the __wbindgen_externref_table_dealloc function").
+# 1.95 is the last stable that works with wasm-bindgen 0.2.125. Bump
+# back to latest once a wasm-bindgen release fixes 1.96 compat. The
+# Dockerfile pins rust:1.95-slim for the same reason.
+[toolchain]
+channel = "1.95"
