@@ -7,6 +7,11 @@
 //
 // Run with:
 //
+//     cargo run --release --bin build_corpus
+//
+// Keys are auto-loaded from `./.env` via `dotenvy` (process-supplied env
+// vars still win). Alternatively:
+//
 //     OPENAI_API_KEY=sk-... cargo run --release --bin build_corpus
 //
 // The committed `data/corpus.json` then needs no `OPENAI_API_KEY` at
@@ -32,6 +37,8 @@ const OUT_PATH: &str = "data/corpus.json";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Auto-load ./.env. Process-supplied vars win; absent .env is a no-op.
+    let _ = dotenvy::dotenv();
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
