@@ -17,7 +17,7 @@ The assistant working in this repo MUST follow these rules.
 - **Framework:** Dioxus 0.7 fullstack — single crate, wasm client + axum
   server, `#[get]`/`#[post]`/`#[server]` server functions.
 - **Target:** Web only (`dx serve --web`).
-- **LLM (planned, Phase 3):** OpenCode Zen's `opencode/big-pickle` via
+- **LLM:** OpenCode Zen's `opencode/big-pickle` via
   `async-openai` pointed at `https://opencode.ai/zen/v1/chat/completions`
   using `OPENCODE_API_KEY` + `OPENCODE_BASE_URL` (server-side only).
   (`gpt-4o-mini` was the original plan; Zen's `big-pickle` is free
@@ -31,7 +31,7 @@ The assistant working in this repo MUST follow these rules.
   `/experiences/<sub>/`, `/events/`, `/practical-tips/`, `/green-travel/`)
   and scraping each linked article's rendered HTML. The site's WP REST
   API (`/wp-json/wp/v2/*`) went dark in mid-2026 (returns 404 / silent
-  homepage fallback), so Phase 1 ingests by scraping the Uncode theme
+  homepage fallback), so it ingests by scraping the Uncode theme
   markup (`<body class="postid-N">`, `<article class="category-NAME">`,
   `<h1>`, `<div class="post-content">`) instead of REST JSON.
 - **Persistence:** Stateless MVP — no DB, no auth.
@@ -59,7 +59,7 @@ The assistant working in this repo MUST follow these rules.
   xtask lives at `src/bin/build_corpus.rs` and `use`s the library.
 - Server-function orchestration (`plan_trip`) keeps LLM keys in env
   (`OPENCODE_API_KEY`, `OPENCODE_BASE_URL=https://opencode.ai/zen/v1`,
-  model `opencode/big-pickle`) for Phase 3 chat, and the OpenAI
+  model `opencode/big-pickle`) for chat, and the OpenAI
   embeddings key (`OPENAI_API_KEY`) is used only by the one-time
   `build_corpus` run. Neither key ever ships to wasm.
 - The `Retriever` trait lives in `src/retrieval/mod.rs`. Any new backend
@@ -90,7 +90,7 @@ dx bundle --release --platform web
 # Tailwind (run in a separate terminal during UI work)
 npx @tailwindcss/cli -i ./input.css -o ./assets/tailwind.css --watch
 
-# Rebuild the RAG corpus from visitquangnam.com HTML (Phase 1, Phase 6 cron)
+# Rebuild the RAG corpus from visitquangnam.com HTML
 cargo run --release --bin build_corpus
 ```
 
@@ -111,13 +111,13 @@ src/
 ├── main.rs              # dioxus::launch(App)
 ├── app.rs               # root component, Tailwind shell, brand chrome
 ├── components/          # form, day tabs, timeline, summary, "More
-│                        # ideas" footer (Phase 4; the SVG mockup's
+│                        # ideas" footer (the SVG mockup's
 │                        # "AI Recommended For You" sidebar was folded into
 │                        # `trip_summary.rs` — no separate suggestions.rs)
-├── domain/              # Chunk, Corpus (Phase 1); Itinerary, DayPlan... (Phase 2)
-├── ingest/              # HTML scraper + chunker + embedder (Phase 1)
-├── retrieval/           # Retriever trait + InMemoryRetriever (Phase 2)
-├── server/              # plan_trip server function, LLM client (Phase 3)
+├── domain/              # Chunk, Corpus; Itinerary, DayPlan...
+├── ingest/              # HTML scraper + chunker + embedder
+├── retrieval/           # Retriever trait + InMemoryRetriever
+├── server/              # plan_trip server function, LLM client
 └── bin/
     └── build_corpus.rs  # xtask: scrape HTML → chunks → embeddings → corpus.json
 data/
@@ -125,17 +125,3 @@ data/
 assets/
 └── tailwind.css         # generated from ../input.css (gitignored)
 ```
-
-## Phased delivery
-
-1. **Phase 0 — Scaffold** (this commit): repo, Cargo.toml, Tailwind, AGENTS.md, hello world that builds.
-2. **Phase 1 — Ingest + corpus:** `build_corpus.rs` scrapes the fixed
-   section indexes of `visitquangnam.com`, chunks each article,
-   embeds, writes `corpus.json`.
-3. **Phase 2 — Retrieval:** `Retriever` trait + `InMemoryRetriever`; offline cosine search tests.
-4. **Phase 3 — LLM orchestration:** `plan_trip` server fn returns typed `Itinerary`; JSON-schema validated.
-5. **Phase 4 — UI:** form, day tabs, timeline, summary, "More ideas" footer
-   row (replaces the SVG mockup's "AI Recommended For You" sidebar — see
-    `src/components/trip_summary.rs`).
-6. **Phase 5 — Polish:** loading states, error surfacing, sustainability score, EN strings.
-7. **Phase 6 — Ship:** Dockerfile, README demo link.
