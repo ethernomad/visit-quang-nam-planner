@@ -173,10 +173,11 @@ fn build_retrieval_query(p: &Preferences) -> String {
     )
 }
 
-/// Host the LLM is allowed to cite as a `source_url`. Matches the WP REST
-/// source (`visitquangnam.com` `/wp/v2/posts` → `link`) the corpus was built
-/// from. Tightened in `post_validate` per the audit so a malformed chunk or
-/// an off-domain hallucinated URL both fail fast with a clear message.
+/// Host the LLM is allowed to cite as a `source_url`. Matches the bare
+/// `visitquangnam.com` canonical form (`<link rel="canonical">`) the
+/// corpus is built from — see `src/ingest/html.rs` (`BASE`). Tightened
+/// in `post_validate` per the audit so a malformed chunk or an off-
+/// domain hallucinated URL both fail fast with a clear message.
 #[cfg(feature = "server")]
 const ALLOWED_URL_PREFIX: &str = "https://visitquangnam.com/";
 

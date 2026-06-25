@@ -26,7 +26,14 @@ The assistant working in this repo MUST follow these rules.
   OpenAI only — Zen has no `/embeddings` endpoint.
 - **Retrieval:** In-memory cosine now, behind a `trait Retriever` so a
   future `PgVectorRetriever` is a drop-in swap.
-- **Content source:** `visitquangnam.com/wp-json/wp/v2/posts`.
+- **Content source:** `visitquangnam.com` article pages, discovered by
+  crawling a fixed list of section indexes (`/`, `/places/`,
+  `/experiences/<sub>/`, `/events/`, `/practical-tips/`, `/green-travel/`)
+  and scraping each linked article's rendered HTML. The site's WP REST
+  API (`/wp-json/wp/v2/*`) went dark in mid-2026 (returns 404 / silent
+  homepage fallback), so Phase 1 ingests by scraping the Uncode theme
+  markup (`<body class="postid-N">`, `<article class="category-NAME">`,
+  `<h1>`, `<div class="post-content">`) instead of REST JSON.
 - **Persistence:** Stateless MVP — no DB, no auth.
 - **i18n:** English only for MVP.
 - **Styling:** Tailwind v4 (`@import "tailwindcss"`), compiled with
@@ -83,7 +90,7 @@ dx bundle --release --platform web
 # Tailwind (run in a separate terminal during UI work)
 npx @tailwindcss/cli -i ./input.css -o ./assets/tailwind.css --watch
 
-# Rebuild the RAG corpus from WordPress (Phase 1, Phase 6 cron)
+# Rebuild the RAG corpus from visitquangnam.com HTML (Phase 1, Phase 6 cron)
 cargo run --release --bin build_corpus
 ```
 
@@ -108,11 +115,11 @@ src/
 │                        # "AI Recommended For You" sidebar was folded into
 │                        # `trip_summary.rs` — no separate suggestions.rs)
 ├── domain/              # Chunk, Corpus (Phase 1); Itinerary, DayPlan... (Phase 2)
-├── ingest/              # WordPress REST fetch + chunker + embedder (Phase 1)
+├── ingest/              # HTML scraper + chunker + embedder (Phase 1)
 ├── retrieval/           # Retriever trait + InMemoryRetriever (Phase 2)
 ├── server/              # plan_trip server function, LLM client (Phase 3)
 └── bin/
-    └── build_corpus.rs  # xtask: WP REST → chunks → embeddings → corpus.json
+    └── build_corpus.rs  # xtask: scrape HTML → chunks → embeddings → corpus.json
 data/
 └── corpus.json          # committed, prebuilt chunks + embeddings cache
 assets/
@@ -122,7 +129,9 @@ assets/
 ## Phased delivery
 
 1. **Phase 0 — Scaffold** (this commit): repo, Cargo.toml, Tailwind, AGENTS.md, hello world that builds.
-2. **Phase 1 — Ingest + corpus:** `build_corpus.rs` pulls WP REST, chunks, embeds, writes `corpus.json`.
+2. **Phase 1 — Ingest + corpus:** `build_corpus.rs` scrapes the fixed
+   section indexes of `visitquangnam.com`, chunks each article,
+   embeds, writes `corpus.json`.
 3. **Phase 2 — Retrieval:** `Retriever` trait + `InMemoryRetriever`; offline cosine search tests.
 4. **Phase 3 — LLM orchestration:** `plan_trip` server fn returns typed `Itinerary`; JSON-schema validated.
 5. **Phase 4 — UI:** form, day tabs, timeline, summary, "More ideas" footer

@@ -1,11 +1,13 @@
-// Ingest pipeline. Phase 1: `wordpress` (fetch /wp-json/wp/v2/{posts,pages}),
+// Ingest pipeline. Phase 1: `html` (scrape rendered article pages from
+// the fixed section indexes of visitquangnam.com — the site's WP REST
+// API is down, returning 404 for `/wp-json/wp/v2/*`; see `html.rs`),
 // `chunk` (paragraph chunker), `embedder` (OpenAI text-embedding-3-small).
 // Run as an xtask via `cargo run --release --bin build_corpus`.
 //
-// `wordpress` and `embedder` reference server-only deps (reqwest,
-// async-openai) and are gated behind `#[cfg(feature = "server")]`. `chunk`
-// has no server-only deps — it compiles to wasm so its unit tests run on
-// the host target used by `cargo test --all`.
+// `html` and `embedder` reference server-only deps (reqwest, scraper,
+// async-openai) and are gated behind `#[cfg(feature = "server")]`.
+// `chunk` has no server-only deps — it compiles to wasm so its unit
+// tests run on the host target used by `cargo test --all`.
 
 pub mod chunk;
 
@@ -13,4 +15,4 @@ pub mod chunk;
 pub mod embedder;
 
 #[cfg(feature = "server")]
-pub mod wordpress;
+pub mod html;

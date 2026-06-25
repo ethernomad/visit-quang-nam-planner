@@ -21,13 +21,15 @@ the browser; the wasm client posts to a Dioxus `#[post]` server function
 validate** pipeline and returns a typed `Itinerary` that the client
 renders as day tabs + a timeline + a summary card.
 
-Grounding comes from a RAG corpus built offline from
-`visitquangnam.com`'s WordPress REST API. The corpus (`Chunk`s with
-precomputed 1536-dim embeddings) is committed to `data/corpus.json` so
-the server boots offline; query-time embeddings (one per request) still
-go to real OpenAI `text-embedding-3-small`. Chat completions go to
-OpenCode Zen's `opencode/big-pickle` (an OpenAI-chat-compatible
-endpoint) during Zen's free stealth period.
+Grounding comes from a RAG corpus built offline by **scraping rendered
+article HTML** from `visitquangnam.com`'s fixed section indexes (the
+site's WordPress REST API `/wp-json/wp/v2/*` went dark in mid-2026).
+The corpus (`Chunk`s with precomputed 1536-dim embeddings) is
+committed to `data/corpus.json` so the server boots offline; query-time
+embeddings (one per request) still go to real OpenAI
+`text-embedding-3-small`. Chat completions go to OpenCode Zen's
+`opencode/big-pickle` (an OpenAI-chat-compatible endpoint) during Zen's
+free stealth period.
 
 There is **no database, no auth, no per-user state**. Statelessness is an
 explicit MVP choice (see [`AGENTS.md`](./AGENTS.md) "Persistence").
@@ -78,8 +80,11 @@ The corpus itself is built offline by a separate xtask:
 
 ```
 cargo run --release --bin build_corpus      # one-time, server feature
-  visitquangnam.com/wp-json/wp/v2/{posts,pages}
-    → ingest::wordpress::fetch_all
+  visitquangnam.com article pages (scraped from the fixed
+    section indexes — the site's `/wp-json/wp/v2/*` REST API went
+    dark in mid-2026: returns 404 / silent homepage fallback)
+    → ingest::html::fetch_all (post id + category from body/article
+                                class tokens; body from .post-content)
     → ingest::chunk::chunk    (~300-token slices, "# {title}" prefix)
     → ingest::embedder::embed (OpenAI text-embedding-3-small, batch 256)
     → data/corpus.json        (committed; server boots offline)
@@ -104,7 +109,7 @@ visit-quang-nam-planner  (single crate, lib + bin)
 ├── src/domain/             Chunk, Corpus, Itinerary, DayPlan, Activity,
 │                           Preferences, TripSummary, enums — serde types
 │                           that cross the client/server boundary
-├── src/ingest/             wordpress, chunk, embedder (Phase 1)
+├── src/ingest/             html, chunk, embedder (Phase 1)
 ├── src/retrieval/          Retriever + Embed traits, InMemoryRetriever
 ├── data/corpus.json        committed RAG corpus (git-tracked)
 └── assets/tailwind.css     generated from ../input.css (gitignored)
@@ -166,8 +171,21 @@ corpus shape. Everything here derives `Serialize + Deserialize` and has
 
 Phase 1 corpus builder:
 
-- `wordpress` — REST fetcher against
-  `visitquangnam.com/wp-json/wp/v2/{posts,pages}`.
+- `html` — rendered-HTML scraper against `visitquangnam.com` article
+  pages. The site's WordPress REST API (`/wp-json/wp/v2/{posts,pages}`)
+  went dark in mid-2026 (every endpoint 404s or 301s into a 404, and
+  `?rest_route=…` silently falls back to homepage HTML), so discovery
+  crawls a fixed list of section indexes (`/`, `/places/`,
+  `/experiences/<sub>/`, `/events/`, `/practical-tips/`,
+  `/green-travel/`) and fetches each linked article. The Uncode theme
+  stamps stable hooks onto the markup — `<body class="postid-N">` for
+  the id, `<article class="category-NAME">` for the category, `<h1>`
+  for the title, `<div class="post-content">` for the body — and the
+  scraper recovers those without any JSON. Concurrency is bounded via
+  `futures::stream::buffer_unordered(8)` for politeness. Output URLs are
+  canonicalised to the **bare** `https://visitquangnam.com/` form (the
+  site's own `<link rel="canonical">`) so they match
+  `plan_trip`'s `ALLOWED_URL_PREFIX` and the prompt template.
 - `chunk` — paragraph chunker, ~300-token slices, first chunk prefixed
   with `# {title}\n\n` so the embedding carries title context. **No
   server-only deps** → runs under `cargo test --all` on any target.
@@ -275,10 +293,14 @@ Phase 1 corpus builder:
 ### `src/bin/build_corpus.rs` (xtask, server feature)
 
 Standalone bin: `OPENAI_API_KEY=… cargo run --release --bin build_corpus`.
-Fetches every WP post+page, chunks, batch-embeds (256/batch), writes
-`data/corpus.json` with `model`, `generated_at`, and `chunks` fields.
-Sanity-checks every chunk's embedding is 1536-dim. Re-run to refresh;
-commit the result so the server boots offline.
+Scrapes every article page discoverable from the fixed section indexes
+of `visitquangnam.com` (via `ingest::html::fetch_all`), chunks, batch-
+embeds (256/batch), writes `data/corpus.json` with `model`,
+`generated_at`, and `chunks` fields. Sanity-checks every chunk's
+embedding is 1536-dim. The reqwest client pins
+`redirect::Policy::limited(10)` so the bare→www and http→https 301s
+the upstream issues don't silently fail. Re-run to refresh; commit the
+result so the server boots offline.
 
 ## 6. Request lifecycle (`POST /api/plan-trip`)
 

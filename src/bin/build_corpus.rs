@@ -1,9 +1,12 @@
 // xtask entry — builds the committed RAG corpus.
 //
-// Pipeline: fetch every WP post+page → chunk each into ~300-token slices
-// with `# {title}` prefix → embed all chunks in batches of 256 against
-// OpenAI `text-embedding-3-small` → assemble a `Corpus` and write it to
-// `data/corpus.json` so the server boots offline in Phase 2.
+// Pipeline: scrape every article page discoverable from the fixed
+// section indexes of visitquangnam.com (the site's WP REST API is down
+// — `/wp-json/wp/v2/*` returns 404 as of Jun 2026; see `ingest::html`)
+// → chunk each into ~300-token slices with `# {title}` prefix → embed
+// all chunks in batches of 256 against OpenAI `text-embedding-3-small`
+// → assemble a `Corpus` and write it to `data/corpus.json` so the
+// server boots offline in Phase 2.
 //
 // Run with:
 //
@@ -30,7 +33,7 @@ use std::path::Path;
 use anyhow::Context;
 use visit_quang_nam_planner::domain::{Chunk, Corpus};
 use visit_quang_nam_planner::ingest;
-use visit_quang_nam_planner::ingest::wordpress::RawPost;
+use visit_quang_nam_planner::ingest::html::RawPost;
 
 const EMBEDDING_MODEL: &str = "text-embedding-3-small";
 const OUT_PATH: &str = "data/corpus.json";
@@ -52,8 +55,13 @@ async fn main() -> anyhow::Result<()> {
 
     let client = reqwest::Client::builder()
         .user_agent("visit-quang-nam-planner/build_corpus")
+        // visitquangnam.com 301s bare→www and http→https; the default
+        // `reqwest` policy follows up to 10 redirects, but pin it
+        // explicitly so a future site reshuffle can't silently turn a
+        // successful corpus build into a 404.
+        .redirect(reqwest::redirect::Policy::limited(10))
         .build()?;
-    let posts = ingest::wordpress::fetch_all(&client).await?;
+    let posts = ingest::html::fetch_all(&client).await?;
     tracing::info!(count = posts.len(), "fetched posts+pages");
 
     let mut chunks: Vec<Chunk> = Vec::new();
