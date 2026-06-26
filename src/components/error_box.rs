@@ -31,6 +31,7 @@
 use dioxus::prelude::*;
 
 use crate::copies;
+use crate::server::plan_trip::VALIDATION_PREFIX;
 
 #[derive(Props, Clone, PartialEq)]
 pub struct ErrorBoxProps {
@@ -77,10 +78,9 @@ pub fn classify_error(e: &ServerFnError) -> (&'static str, String) {
             copies::ERROR_NETWORK_BODY.to_string(),
         ),
 
-        ServerFnError::ServerError { message, code, .. } if *code == 503 => (
-            "The planner is taking a break",
-            "The model backend returned 503 (overloaded). Wait a moment and try again.".to_string(),
-        ),
+        ServerFnError::ServerError { message, code, .. } if *code == 503 => {
+            (copies::ERR_503_TITLE, copies::ERR_503_BODY.to_string())
+        }
 
         ServerFnError::ServerError { message, .. } => {
             let m = message.as_str();
@@ -123,14 +123,10 @@ pub fn classify_error(e: &ServerFnError) -> (&'static str, String) {
     }
 }
 
-/// Heuristic: does this server error message look like a `validate_prefs`
-/// rejection? The validator emits strings like `"duration_days must be
-/// 1..=14"`, `"interests must not be empty"`, `"at least one adult required"`.
+/// Heuristic: does this server error message carry the `validation:` prefix
+/// that `validate_prefs` stamps on every rejection?
 fn is_validation_message(m: &str) -> bool {
-    m.contains("duration_days")
-        || m.contains("interests must not be empty")
-        || m.contains("at least one adult")
-        || m.contains("must be 1..=14")
+    m.contains(VALIDATION_PREFIX)
 }
 
 #[cfg(test)]
@@ -160,8 +156,8 @@ mod tests {
     fn classifies_503_as_overloaded() {
         let e = server_err("upstream 503", 503);
         let (title, body) = classify_error(&e);
-        assert_eq!(title, "The planner is taking a break");
-        assert!(body.contains("503"));
+        assert_eq!(title, copies::ERR_503_TITLE);
+        assert!(body.contains("503")); // Keep the body assertion loose since copies might change
     }
 
     #[test]
@@ -195,7 +191,10 @@ mod tests {
 
     #[test]
     fn classifies_validation_duration() {
-        let e = server_err("duration_days must be 1..=14, got 0", 400);
+        let e = server_err(
+            &format!("{}duration_days must be 1..=14, got 0", VALIDATION_PREFIX),
+            400,
+        );
         let (title, body) = classify_error(&e);
         assert_eq!(title, copies::ERROR_VALIDATION_TITLE);
         assert!(body.contains("duration_days"));
@@ -204,14 +203,20 @@ mod tests {
 
     #[test]
     fn classifies_validation_interests() {
-        let e = server_err("interests must not be empty", 400);
+        let e = server_err(
+            &format!("{}interests must not be empty", VALIDATION_PREFIX),
+            400,
+        );
         let (title, _) = classify_error(&e);
         assert_eq!(title, copies::ERROR_VALIDATION_TITLE);
     }
 
     #[test]
     fn classifies_validation_no_adults() {
-        let e = server_err("at least one adult required", 400);
+        let e = server_err(
+            &format!("{}at least one adult required", VALIDATION_PREFIX),
+            400,
+        );
         let (title, _) = classify_error(&e);
         assert_eq!(title, copies::ERROR_VALIDATION_TITLE);
     }

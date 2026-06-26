@@ -127,6 +127,11 @@ pub async fn plan_trip_inner(
     Ok(itinerary)
 }
 
+/// Shared validation-error label prefixed to every `validate_prefs` rejection
+/// so downstream classifiers can identify validation errors without string-matching
+/// individual field names that may drift.
+pub const VALIDATION_PREFIX: &str = "validation: ";
+
 /// Server-side input validation. Failures here are user errors — return them
 /// as 400s once the UI wires `StatusCode` mapping (Phase 5); for Phase 3,
 /// `ServerFnError` defaults to 500 which is fine since the form constrains
@@ -134,13 +139,16 @@ pub async fn plan_trip_inner(
 #[cfg(feature = "server")]
 fn validate_prefs(p: &Preferences) -> anyhow::Result<()> {
     if p.duration_days == 0 || p.duration_days > 14 {
-        anyhow::bail!("duration_days must be 1..=14, got {}", p.duration_days);
+        anyhow::bail!(
+            "{VALIDATION_PREFIX}duration_days must be 1..=14, got {}",
+            p.duration_days
+        );
     }
     if p.interests.is_empty() {
-        anyhow::bail!("interests must not be empty");
+        anyhow::bail!("{VALIDATION_PREFIX}interests must not be empty");
     }
     if p.travelers.adults == 0 {
-        anyhow::bail!("at least one adult required");
+        anyhow::bail!("{VALIDATION_PREFIX}at least one adult required");
     }
     Ok(())
 }
@@ -161,9 +169,9 @@ fn build_retrieval_query(p: &Preferences) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     format!(
-        "{}-day {} trip in {}, {} pace, {} budget, {} adults + {} kids, interests: {}",
+        "{}-day{} trip in {}, {} pace, {} budget, {} adults + {} kids, interests: {}",
         p.duration_days,
-        if p.green_travel { "eco-friendly" } else { "" },
+        if p.green_travel { " eco-friendly" } else { "" },
         p.month.as_str(),
         p.pace.as_str(),
         p.budget_tier.as_str(),

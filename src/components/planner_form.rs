@@ -125,12 +125,12 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
                     }
                     select {
                         class: "w-full bg-white text-[#1a4f3a] text-sm rounded-md px-3 py-2 border border-[#a8d5ba]/40",
-                        value: format!("{:?}", current.month),
+                        value: current.month.as_str(),
                         onchange: move |e| {
                             let mut p = prefs();
                             let parsed = MONTHS
                                 .iter()
-                                .find(|m| format!("{m:?}") == e.value())
+                                .find(|m| m.as_str() == e.value())
                                 .copied();
                             if let Some(m) = parsed {
                                 p.month = m;
@@ -138,7 +138,7 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
                             }
                         },
                         for m in MONTHS.iter() {
-                            option { value: format!("{m:?}"), "{m:?}" }
+                            option { value: m.as_str(), "{m.as_str()}" }
                         }
                     }
                     // Phase 5: climate hint helps the user pick a month

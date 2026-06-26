@@ -5,5 +5,4 @@ consumed by `InMemoryRetriever` at server startup. It's produced by:
 
     cargo run --release --bin build_corpus
 
-and committed so the server boots offline. Until Phase 1 lands, this
-directory is intentionally empty.
+`corpus.json` is produced by `build_corpus` and committed so the server boots offline.

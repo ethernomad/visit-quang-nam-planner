@@ -56,6 +56,11 @@ pub static ERROR_SEND_BODY: &str = "Something went wrong packaging your request.
 pub static ERROR_GENERIC_TITLE: &str = "Something went wrong";
 pub static TRY_AGAIN: &str = "Try again";
 
+// ===== Error classification (not surfaced to user directly) =====
+pub static ERR_503_TITLE: &str = "The planner is taking a break";
+pub static ERR_503_BODY: &str =
+    "The model backend returned 503 (overloaded). Wait a moment and try again.";
+
 // ===== Itinerary view =====
 pub static NO_ACTIVITIES_HINT: &str =
     "No activities planned for this day. Try adjusting your interests.";
