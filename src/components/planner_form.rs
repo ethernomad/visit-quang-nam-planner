@@ -183,7 +183,7 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
                     label { class: "block text-xs font-semibold text-[#a8d5ba] mb-1.5",
                         "{copies::TRAVELERS_LABEL}"
                     }
-                    div { class: "flex gap-2",
+                    div { class: "flex flex-col items-start gap-2",
                         Stepper {
                             label: "Adults".to_string(),
                             value: current.travelers.adults,
