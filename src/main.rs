@@ -20,6 +20,12 @@ fn main() {
         let _ = tracing_subscriber::fmt()
             .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
             .try_init();
+        // Eagerly warm the singletons so the first request doesn't pay
+        // the corpus.json load + parse cost on its critical path. Failures
+        // are cached in `OnceLock` per the existing contract — the first
+        // real request will return the same error.
+        let _ = server::shared_retriever();
+        let _ = server::shared_llm();
     }
     dioxus::launch(app::App);
 }

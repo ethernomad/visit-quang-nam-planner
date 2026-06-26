@@ -52,11 +52,13 @@ const DEFAULT_BASE_URL: &str = "https://opencode.ai/zen/v1";
 /// that frees the axum worker even if the Zen endpoint hangs. Tunable
 /// via `OPENCODE_TIMEOUT_SECS`.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
-/// Max completion tokens per LLM call. Reasoning models (e.g. `big-pickle`
-/// which routes to `deepseek-v4-flash` with thinking) will generate
-/// unbounded reasoning tokens without a cap, hitting the timeout. Tunable
-/// via `OPENCODE_MAX_TOKENS`.
-const DEFAULT_MAX_TOKENS: u32 = 16384;
+/// Max completion tokens per LLM call. A 14-day itinerary with 5 activities
+/// each fits comfortably in ~8K tokens; a lower cap speeds generation by
+/// preventing the model from inflating output verbosity. Reasoning models
+/// (e.g. `big-pickle` which routes to `deepseek-v4-flash` with thinking)
+/// will generate unbounded reasoning tokens without a cap, hitting the
+/// timeout. Tunable via `OPENCODE_MAX_TOKENS`.
+const DEFAULT_MAX_TOKENS: u32 = 8192;
 
 /// Seam used by `plan_trip_inner`. The real implementation is `LlmClient`
 /// below; tests inject a `MockLlm` that returns a canned `Itinerary` so the

@@ -49,10 +49,12 @@ use crate::server::prompts;
 #[cfg(feature = "server")]
 use crate::server::{shared_llm, shared_retriever};
 
-/// Number of grounding chunks retrieved per request. 8 is roughly 2.4K tokens
-/// of context, well within `mimo-v2.5-free` / `gpt-4o-mini` limits.
+/// Number of grounding chunks retrieved per request. 5 is roughly 1.5K tokens
+/// of context — enough grounding diversity while keeping the prompt lean
+/// for faster LLM generation. Well within `mimo-v2.5-free` / `gpt-4o-mini`
+/// limits.
 #[cfg(feature = "server")]
-const TOP_K: usize = 8;
+const TOP_K: usize = 5;
 
 /// POST `/api/plan-trip`. The wire format is `Preferences` (JSON) → 200
 /// `Itinerary` (JSON). Errors come back as `ServerFnError`; `post_validate`

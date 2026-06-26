@@ -50,7 +50,7 @@ explicit MVP choice (see [`AGENTS.md`](./AGENTS.md) "Persistence").
 │  server/plan_trip.rs ─ #[post("/api/plan-trip")]                       │
 │   validate_prefs(prefs)                                                │
 │   build_retrieval_query(prefs)                                         │
-│   shared_retriever().search(query, TOP_K=8) ── chunks ──┐              │
+│   shared_retriever().search(query, TOP_K=5) ── chunks ──┐              │
 │   prompts::build_user_prompt(prefs, &chunks)             │              │
 │   shared_llm().complete_itinerary(system, user)          │              │
 │   post_validate(itin, prefs, &chunks) ◀── enforces URLs ┘              │
@@ -240,7 +240,7 @@ Phase 1 corpus builder:
   2. `build_retrieval_query` (hand-rolled natural-language sentence —
      works better for cosine against article-text embeddings than a YAML
      blob).
-  3. `retriever.search(query, TOP_K=8)` (≈2.4K tokens of grounding).
+  3. `retriever.search(query, TOP_K=5)` (≈1.5K tokens of grounding).
   4. `prompts::SYSTEM_PROMPT` (template) + `prompts::build_user_prompt`
      (chunks inlined).
   5. `llm.complete_itinerary(system, user)` — Zen returns
@@ -311,8 +311,9 @@ result so the server boots offline.
 2. **Transport** — the stub serialises `Preferences` (serde) and POSTs to
    `/api/plan-trip` on the same origin.
 3. **Server function** — Dioxus' axum layer dispatches to `plan_trip`,
-   which calls `shared_retriever()` + `shared_llm()` (initialised lazily,
-   errors cached — every subsequent failing request re-logs the cached
+   which calls `shared_retriever()` + `shared_llm()` (initialised eagerly
+   at boot in `main()` — not lazily; errors cached per the OnceLock
+   contract — every subsequent failing request re-logs the cached
    init error, audit #7). Before driving `plan_trip_inner`, it acquires
    a permit from `shared_concurrency_limit()` (process-wide
    `tokio::sync::Semaphore`, default 4, env `OPENCODE_MAX_CONCURRENCY`,
@@ -321,7 +322,7 @@ result so the server boots offline.
    error). If the wasm client disconnects, axum drops the future,
    cancelling the in-flight `.await` chain.
 4. **`plan_trip_inner`** — `validate_prefs` → `build_retrieval_query` →
-   `retriever.search(query, 8)` (which calls `OpenAiEmbedder` once to
+   `retriever.search(query, 5)` (which calls `OpenAiEmbedder` once to
    embed the query, then cosine top-K) → `prompts::build_user_prompt` →
    `llm.complete_itinerary` (Zen chat completion, JSON mode) →
    `serde_json::from_str::<Itinerary>` → `post_validate` → `Ok(Itinerary)`.
