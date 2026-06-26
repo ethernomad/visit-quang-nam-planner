@@ -21,7 +21,7 @@
 // server startup. To refresh the corpus, re-run the bin and commit the
 // updated file. Big Pickle / OpenCode Zen can't be used here — Zen has
 // no `/embeddings` endpoint, so embeddings stay on real OpenAI for the
-// one-time corpus build. (Phase 3 will NAT chat to `opencode/big-pickle`
+// one-time corpus build. (Phase 3 will NAT chat to `mimo-v2.5-free`
 // via `OPENCODE_API_KEY` + `OPENCODE_BASE_URL=https://opencode.ai/zen/v1`.)
 
 #![cfg(feature = "server")]

@@ -17,10 +17,10 @@ The assistant working in this repo MUST follow these rules.
 - **Framework:** Dioxus 0.7 fullstack — single crate, wasm client + axum
   server, `#[get]`/`#[post]`/`#[server]` server functions.
 - **Target:** Web only (`dx serve --web`).
-- **LLM:** OpenCode Zen's `opencode/big-pickle` via
+- **LLM:** OpenCode Zen's `mimo-v2.5-free` via
   `async-openai` pointed at `https://opencode.ai/zen/v1/chat/completions`
   using `OPENCODE_API_KEY` + `OPENCODE_BASE_URL` (server-side only).
-  (`gpt-4o-mini` was the original plan; Zen's `big-pickle` is free
+  (`gpt-4o-mini` was the original plan; Zen's `mimo-v2.5-free` is free
   during its stealth period and OpenAI-chat-compatible.)
 - **Embeddings:** OpenAI `text-embedding-3-small` (1536-dim), real
   OpenAI only — Zen has no `/embeddings` endpoint.
@@ -59,7 +59,7 @@ The assistant working in this repo MUST follow these rules.
   xtask lives at `src/bin/build_corpus.rs` and `use`s the library.
 - Server-function orchestration (`plan_trip`) keeps LLM keys in env
   (`OPENCODE_API_KEY`, `OPENCODE_BASE_URL=https://opencode.ai/zen/v1`,
-  model `opencode/big-pickle`) for chat, and the OpenAI
+  model `mimo-v2.5-free`) for chat, and the OpenAI
   embeddings key (`OPENAI_API_KEY`) is used only by the one-time
   `build_corpus` run. Neither key ever ships to wasm.
 - The `Retriever` trait lives in `src/retrieval/mod.rs`. Any new backend

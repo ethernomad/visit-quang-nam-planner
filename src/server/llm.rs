@@ -1,7 +1,7 @@
 // LLM client for Phase 3 chat orchestration.
 //
-// Per AGENTS.md (the locked tech stack), the planner uses OpenCode Zen's
-// `opencode/big-pickle` via an OpenAI-chat-compatible endpoint at
+// Per AGENTS.md (the locked tech stack), the planner uses OpenCode Zen
+// via an OpenAI-chat-compatible endpoint at
 // `OPENCODE_BASE_URL` (default `https://opencode.ai/zen/v1`), authenticated
 // with `OPENCODE_API_KEY`. Zen is free during its stealth period and speaks
 // the OpenAI `/chat/completions` shape, so `async-openai` drives it directly
@@ -41,9 +41,10 @@ use serde::de::DeserializeOwned;
 use visit_quang_nam_planner::domain::Itinerary;
 
 /// Default chat model on the Zen stealth endpoint. Override with the
-/// `OPENCODE_MODEL` env var (useful for A/B against `gpt-4o-mini` once Zen
-/// sunsets and we re-point `OPENCODE_BASE_URL` at real OpenAI).
-const DEFAULT_MODEL: &str = "opencode/big-pickle";
+/// `OPENCODE_MODEL` env var. Uses `mimo-v2.5-free` (a non-reasoning model)
+/// instead of `big-pickle` which routes to a reasoning model that burns
+/// all token budget on thinking tokens before producing content.
+const DEFAULT_MODEL: &str = "mimo-v2.5-free";
 /// Default Zen base URL. Overridable via `OPENCODE_BASE_URL`.
 const DEFAULT_BASE_URL: &str = "https://opencode.ai/zen/v1";
 /// Server-side cap on the chat-completion call. The wasm client's 60s
@@ -51,6 +52,11 @@ const DEFAULT_BASE_URL: &str = "https://opencode.ai/zen/v1";
 /// that frees the axum worker even if the Zen endpoint hangs. Tunable
 /// via `OPENCODE_TIMEOUT_SECS`.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
+/// Max completion tokens per LLM call. Reasoning models (e.g. `big-pickle`
+/// which routes to `deepseek-v4-flash` with thinking) will generate
+/// unbounded reasoning tokens without a cap, hitting the timeout. Tunable
+/// via `OPENCODE_MAX_TOKENS`.
+const DEFAULT_MAX_TOKENS: u32 = 16384;
 
 /// Seam used by `plan_trip_inner`. The real implementation is `LlmClient`
 /// below; tests inject a `MockLlm` that returns a canned `Itinerary` so the
@@ -77,12 +83,14 @@ pub struct LlmClient {
     client: Client<OpenAIConfig>,
     model: String,
     timeout: Duration,
+    max_tokens: u32,
 }
 
 impl LlmClient {
     /// Construct from env. Required: `OPENCODE_API_KEY`. Optional:
     /// `OPENCODE_BASE_URL` (default `https://opencode.ai/zen/v1`),
-    /// `OPENCODE_MODEL` (default `opencode/big-pickle`).
+    /// `OPENCODE_MODEL` (default `mimo-v2.5-free`),
+    /// `OPENCODE_MAX_TOKENS` (default 16384).
     pub fn from_env() -> anyhow::Result<Self> {
         let api_key = env::var("OPENCODE_API_KEY")
             .map_err(|_| anyhow::anyhow!("OPENCODE_API_KEY not set — cannot run planner LLM"))?;
@@ -93,6 +101,10 @@ impl LlmClient {
             .and_then(|s| s.parse().ok())
             .map(Duration::from_secs)
             .unwrap_or(DEFAULT_TIMEOUT);
+        let max_tokens = env::var("OPENCODE_MAX_TOKENS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_MAX_TOKENS);
         let config = OpenAIConfig::new()
             .with_api_key(api_key)
             .with_api_base(base_url);
@@ -100,6 +112,7 @@ impl LlmClient {
             client: Client::with_config(config),
             model,
             timeout,
+            max_tokens,
         })
     }
 }
@@ -135,6 +148,7 @@ impl LlmClient {
 
         let request = CreateChatCompletionRequestArgs::default()
             .model(&self.model)
+            .max_tokens(self.max_tokens)
             .response_format(ResponseFormat::JsonObject)
             .messages([system_msg, user_msg])
             .build()?;
@@ -152,6 +166,7 @@ impl LlmClient {
             .into_iter()
             .next()
             .and_then(|c| c.message.content)
+            .filter(|s| !s.is_empty())
             .ok_or_else(|| anyhow::anyhow!("LLM returned no message content"))?;
 
         parse_llm_json::<T>(&content)

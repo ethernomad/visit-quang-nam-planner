@@ -28,7 +28,7 @@ The corpus (`Chunk`s with precomputed 1536-dim embeddings) is
 committed to `data/corpus.json` so the server boots offline; query-time
 embeddings (one per request) still go to real OpenAI
 `text-embedding-3-small`. Chat completions go to OpenCode Zen's
-`opencode/big-pickle` (an OpenAI-chat-compatible endpoint) during Zen's
+`mimo-v2.5-free` (an OpenAI-chat-compatible endpoint) during Zen's
 free stealth period.
 
 There is **no database, no auth, no per-user state**. Statelessness is an
@@ -63,7 +63,7 @@ explicit MVP choice (see [`AGENTS.md`](./AGENTS.md) "Persistence").
 │ InMemoryRetriever       │        │ LlmClient (async-openai)           │
 │  holds Vec<Chunk> +     │        │  OPENCODE_API_KEY                   │
 │  Arc<dyn Embed>         │        │  OPENCODE_BASE_URL (Zen v1)         │
-│  loads data/corpus.json │        │  model = opencode/big-pickle        │
+│  loads data/corpus.json │        │  model = mimo-v2.5-free        │
 │  cosine top-K           │        └────────────────────────────────────┘
 └──────────────────────────┘
         │
@@ -352,7 +352,7 @@ pass a `MockEmbedder`.
 ### LLM seam — `LlmCompleter`
 
 `plan_trip_inner` takes `&dyn LlmCompleter`. The production impl is
-`LlmClient` (async-openai → Zen → `opencode/big-pickle`); tests inject a
+`LlmClient` (async-openai → Zen → `mimo-v2.5-free`); tests inject a
 `MockLlm` returning a canned `Itinerary` so the orchestration
 (expressly: `post_validate`) is exercised without HTTP. The trait method
 is non-generic (returns `Itinerary`, not `T`) so it stays
@@ -381,9 +381,9 @@ for the canonical list). None ever ship to wasm.
 | var                  | required? | used by                  | purpose                                    |
 |----------------------|-----------|--------------------------|--------------------------------------------|
 | `OPENAI_API_KEY`     | runtime + xtask | `ingest/embedder`, `bin/build_corpus` | query-time + corpus-build embeddings (real OpenAI only — Zen has no `/embeddings`) |
-| `OPENCODE_API_KEY`   | runtime   | `server/llm`             | chat completions (`opencode/big-pickle`)   |
+| `OPENCODE_API_KEY`   | runtime   | `server/llm`             | chat completions (`mimo-v2.5-free`)   |
 | `OPENCODE_BASE_URL`  | optional  | `server/llm`             | default `https://opencode.ai/zen/v1`        |
-| `OPENCODE_MODEL`     | optional  | `server/llm`             | default `opencode/big-pickle`               |
+| `OPENCODE_MODEL`     | optional  | `server/llm`             | default `mimo-v2.5-free`               |
 | `CORPUS_PATH`        | optional  | `server/mod`             | default `data/corpus.json`                  |
 | `PORT`               | optional  | dioxus-cli               | axum listen port, default `8080`            |
 
@@ -464,7 +464,7 @@ default. There is no separate integration-test harness.
 | Concern               | MVP implementation                | Swap point                              |
 |-----------------------|-----------------------------------|-----------------------------------------|
 | Retrieval backend    | `InMemoryRetriever` (cosine RAM)  | `PgVectorRetriever` implements `Retriever`; one-line change in `shared_retriever()` |
-| LLM provider         | Zen `opencode/big-pickle`          | `LlmClient::from_env` reads `OPENCODE_BASE_URL`/`OPENCODE_MODEL`; repoint at real OpenAI without code change |
+| LLM provider         | Zen `mimo-v2.5-free`          | `LlmClient::from_env` reads `OPENCODE_BASE_URL`/`OPENCODE_MODEL`; repoint at real OpenAI without code change |
 | Embeddings model     | `text-embedding-3-small` (1536-d) | constant in `build_corpus`; re-run xtask after changing it (the corpus's `model` field records which model produced each build) |
 | Persistence          | none (stateless)                  | out of scope for MVP; see AGENTS.md     |
 | i18n                 | English only                      | out of scope for MVP; see AGENTS.md     |

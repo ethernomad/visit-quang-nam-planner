@@ -14,4 +14,4 @@ services:
       PORT: "8080"
       # Optional overrides (defaults live in the binary):
       # OPENCODE_BASE_URL: https://opencode.ai/zen/v1
-      # OPENCODE_MODEL: opencode/big-pickle
+      # OPENCODE_MODEL: mimo-v2.5-free

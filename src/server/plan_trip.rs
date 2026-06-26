@@ -50,7 +50,7 @@ use crate::server::prompts;
 use crate::server::{shared_llm, shared_retriever};
 
 /// Number of grounding chunks retrieved per request. 8 is roughly 2.4K tokens
-/// of context, well within `gpt-4o-mini`/`big-pickle` limits.
+/// of context, well within `mimo-v2.5-free` / `gpt-4o-mini` limits.
 #[cfg(feature = "server")]
 const TOP_K: usize = 8;
 
@@ -84,7 +84,10 @@ pub async fn plan_trip(prefs: Preferences) -> Result<Itinerary, ServerFnError> {
             .map_err(|e| ServerFnError::new(format!("concurrency gate failed: {e}")))?;
         let result = plan_trip_inner(&prefs, retriever.as_ref(), llm.as_ref()).await;
         drop(permit);
-        result.map_err(|e| ServerFnError::new(e.to_string()))
+        if let Err(ref e) = result {
+            tracing::error!(error = ?e, "plan_trip failed");
+        }
+        result.map_err(|e| ServerFnError::new(format!("{:#}", e)))
     }
     // Under `web`-only, the `#[post]` macro rewrites this body to a
     // `client_query` call before it ever reaches the type checker. This
@@ -121,7 +124,7 @@ pub async fn plan_trip_inner(
     let itinerary = llm
         .complete_itinerary(&system, &user)
         .await
-        .map_err(|e| anyhow::anyhow!("LLM call failed: {e}"))?;
+        .context("LLM call failed")?;
 
     post_validate(&itinerary, prefs, &chunks)?;
     Ok(itinerary)
