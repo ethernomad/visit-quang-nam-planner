@@ -15,6 +15,9 @@ name = "build_corpus"
 path = "src/bin/build_corpus.rs"
 required-features = ["server"]
 
+[profile.release]
+strip = true
+
 [dependencies]
 dioxus = { version = "0.7", features = ["fullstack", "router"] }
 serde = { version = "1", features = ["derive"] }
@@ -31,7 +34,10 @@ async-trait = { version = "0.1", optional = true }
 gloo-timers = { version = "0.3", features = ["futures"] }
 
 # Server-only deps — kept optional so they're excluded from the wasm client
+clap = { version = "4", features = ["derive"], optional = true }
+clap-verbosity-flag = { version = "3", optional = true }
 dotenvy = { version = "0.15", optional = true }
+log = { version = "0.4", optional = true }
 async-openai = { version = "0.27", optional = true }
 reqwest = { version = "0.12", features = ["json"], optional = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync"], optional = true }
@@ -44,7 +50,10 @@ default = ["web", "server"]
 web = ["dioxus/web"]
 server = [
     "dioxus/server",
+    "dep:clap",
+    "dep:clap-verbosity-flag",
     "dep:dotenvy",
+    "dep:log",
     "dep:async-openai",
     "dep:reqwest",
     "dep:tokio",

@@ -102,9 +102,9 @@ Notes:
   links the wasm-client (`js-sys`) renderer into a native process and
   panics at `dioxus::launch` with
   `cannot access imported statics on non-wasm targets`. Use `dx serve --web`
-  (dev) or `dx bundle --release --platform web` (prod; then run
-  `./dist/visit-quang-nam-planner` from inside `dist/` so the server can
-  locate the bundled `public/` directory).
+   (dev) or `dx bundle --release --platform web` (prod; then run
+   `./target/dx/visit-quang-nam-planner/release/web/server` so the server can
+   locate the bundled `public/` directory).
 - API-only smoke test (no browser UI): `cargo build --release
   --no-default-features --features server`, then run
   `./target/release/visit-quang-nam-planner`. Serves `/api/*` only — the
