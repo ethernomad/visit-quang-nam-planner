@@ -5,13 +5,21 @@
 // `tokio`, `futures`, all gated behind the `server` feature.
 //
 // Big Pickle / OpenCode Zen is a chat-completions provider and exposes no
-// `/embeddings` endpoint, so it cannot be used here. Phase 3 (LLM
-// orchestration) will NAT chat to Zen via `OPENCODE_API_KEY` +
-// `OPENCODE_BASE_URL=https://opencode.ai/zen/v1` with model
-// `mimo-v2.5-free`; this Phase 1 ingest path keeps using
-// `OPENAI_API_KEY` against the real OpenAI API for the one-time
-// `build_corpus` run. The committed `data/corpus.json` then needs no key at
-// server startup.
+// `/embeddings` endpoint, so it cannot be used here. Chat completions go
+// to Zen via `OPENCODE_API_KEY` + `OPENCODE_BASE_URL=https://opencode.ai/zen/v1`
+// with model `mimo-v2.5-free`; embeddings keep using `OPENAI_API_KEY` against
+// the real OpenAI API.
+//
+// There are two call sites:
+//   1. `build_corpus` (one-time xtask) — batch-embeds scraped text into
+//      `data/corpus.json`.
+//   2. `InMemoryRetriever::search` (runtime, every `/api/plan-trip` request) —
+//      embeds the user's query string so it can be cosine-matched against the
+//      precomputed chunk vectors.
+//
+// The committed `data/corpus.json` lets the server boot without re-running the
+// xtask, but `OPENAI_API_KEY` is still required at runtime for query
+// embedding.
 //
 // Batches are sent concurrently with `futures::future::try_join_all`, 256
 // inputs per call (OpenAI's per-request limit for this model). On a failed

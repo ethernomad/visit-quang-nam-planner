@@ -47,9 +47,14 @@ npm run tailwind:watch &  # in one terminal
 dx serve --web            # in another
 ```
 
-The app is served at `http://127.0.0.1:8080`. The planner LLM needs
-`OPENCODE_API_KEY` in the environment (see `.env.example`); without it the
-form still renders but `/api/plan-trip` returns a 500.
+The app is served at `http://127.0.0.1:8080`. The server needs two API
+keys at runtime (see `.env.example`):
+- `OPENCODE_API_KEY` — chat completions to Zen (`mimo-v2.5-free`) for
+  itinerary generation.
+- `OPENAI_API_KEY` — query-time embeddings (`text-embedding-3-small`).
+  Each user query is embedded at request time for cosine search against
+  the precomputed chunk vectors. Without either key, `/api/plan-trip`
+  returns a 500.
 
 Alternatively, run `scripts/bootstrap.sh` to run steps 1–2 interactively.
 
