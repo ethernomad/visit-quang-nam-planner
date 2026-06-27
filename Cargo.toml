@@ -40,7 +40,8 @@ dotenvy = { version = "0.15", optional = true }
 log = { version = "0.4", optional = true }
 async-openai = { version = "0.27", optional = true }
 reqwest = { version = "0.12", features = ["json"], optional = true }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync"], optional = true }
+dioxus-server = { version = "0.7", optional = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync", "net"], optional = true }
 scraper = { version = "0.20", optional = true }
 tiktoken-rs = { version = "0.6", optional = true }
 
@@ -50,6 +51,7 @@ default = ["web", "server"]
 web = ["dioxus/web"]
 server = [
     "dioxus/server",
+    "dep:dioxus-server",
     "dep:clap",
     "dep:clap-verbosity-flag",
     "dep:dotenvy",

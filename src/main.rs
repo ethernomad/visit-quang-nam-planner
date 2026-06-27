@@ -72,6 +72,23 @@ fn main() {
         // real request will return the same error.
         let _ = server::shared_retriever();
         let _ = server::shared_llm();
+
+        // Resolve the address once, matching Dioxus's own IP/PORT env-var
+        // contract (defaults 127.0.0.1:8080).
+        let ip = std::env::var("IP").unwrap_or_else(|_| "127.0.0.1".into());
+        let port = std::env::var("PORT").unwrap_or_else(|_| "8080".into());
+        let addr: std::net::SocketAddr = format!("{ip}:{port}").parse().expect("invalid IP:PORT");
+
+        tracing::info!("Serving frontend at http://{addr}");
+
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+            dioxus_server::axum::serve(listener, dioxus_server::router(app::App))
+                .await
+                .unwrap();
+        });
     }
+
+    #[cfg(not(feature = "server"))]
     dioxus::launch(app::App);
 }

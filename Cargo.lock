@@ -4437,6 +4437,7 @@ dependencies = [
  "clap",
  "clap-verbosity-flag",
  "dioxus",
+ "dioxus-server",
  "dotenvy",
  "futures",
  "gloo-timers",
