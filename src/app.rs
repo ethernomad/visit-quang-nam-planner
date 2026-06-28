@@ -5,7 +5,8 @@
 //   - main panel whose body depends on the `use_resource(plan_trip)` state:
 //       not submitted → empty (form only)
 //       pending       → shimmer skeleton (day-tab pills + day-card +
-//                       timeline placeholder) + 8s "taking longer" hint
+//                       timeline placeholder) + 20s countdown + 8s
+//                       "taking longer" hint
 //       error         → `<ErrorBox>` (Phase 5: promoted from inline block)
 //       success       → `<ItineraryView itinerary=itin />`
 //
@@ -32,8 +33,12 @@
 //       identical resource closures)
 //   `Signal<usize> active_day` (index into `itin.days`, owned here so day
 //       tabs persist across re-renders)
+//   `Signal<u8> countdown_tick` (elapsed countdown ticks, clamped at 20)
 //   `Signal<bool> show_slow_hint` (8s hint visibility)
 //   `Signal<bool> timed_out` (60s hard cap fired)
+//   reactive `itinerary_state` (`UseResourceState`) derived from
+//       `use_resource(...).state()` so the UI re-renders when the request
+//       transitions from pending to ready
 //
 // Manual smoke test for the success state (server running, creds exported):
 //   curl -X POST http://127.0.0.1:8080/api/plan-trip \
@@ -57,6 +62,10 @@ use crate::server::plan_trip::plan_trip;
 
 /// 8 seconds — show the "taking longer" hint.
 const SLOW_HINT_MS: u32 = 8_000;
+/// 20 seconds — initial countdown shown in the itinerary loading card.
+const LOADING_COUNTDOWN_SECS: u8 = 20;
+/// 1 second — refresh the derived countdown display while pending.
+const COUNTDOWN_TICK_MS: u32 = 1_000;
 /// 60 seconds — give up waiting and surface a timeout error.
 const HARD_CAP_MS: u32 = 60_000;
 
@@ -71,6 +80,7 @@ pub fn App() -> Element {
     let active_day = use_signal(|| 0usize);
 
     // Phase 5 resilience flags.
+    let mut countdown_tick = use_signal(|| 0u8);
     let mut show_slow_hint = use_signal(|| false);
     let mut timed_out = use_signal(|| false);
 
@@ -91,6 +101,11 @@ pub fn App() -> Element {
             }
         }
     });
+    // Important Dioxus detail: `Resource::pending()` uses a non-reactive
+    // peek under the hood, so the UI must branch on `state().cloned()` if it
+    // needs to re-render when the request flips between Pending and Ready.
+    let itinerary_state = itinerary.state().cloned();
+    let itinerary_pending = itinerary_state == UseResourceState::Pending;
 
     // Reset the resilience flags whenever a fresh request starts. We watch
     // `submit_nonce` for this: every submit bumps it, which re-triggers the
@@ -101,9 +116,34 @@ pub fn App() -> Element {
     use_effect(move || {
         let _ = submitted();
         let _ = submit_nonce();
+        countdown_tick.set(0);
         show_slow_hint.set(false);
         timed_out.set(false);
     });
+
+    // 20-second countdown shown in the pending itinerary panel. Re-arms on
+    // every submit and advances one tick per second while the current
+    // request is still pending.
+    {
+        let mut countdown_tick = countdown_tick;
+        use_resource(move || {
+            let nonce = submit_nonce();
+            let is_submitted = submitted();
+            async move {
+                if is_submitted {
+                    for elapsed in 1..=LOADING_COUNTDOWN_SECS {
+                        gloo_timers::future::TimeoutFuture::new(COUNTDOWN_TICK_MS).await;
+                        if submit_nonce() != nonce || !itinerary.pending() {
+                            break;
+                        }
+                        countdown_tick.set(elapsed);
+                    }
+                }
+            }
+        });
+    }
+
+    let countdown_secs = LOADING_COUNTDOWN_SECS.saturating_sub(countdown_tick());
 
     // 8-second "taking longer" hint timer. Re-arms on every submit. Fires
     // only while the resource is still pending — if it resolved before 8s,
@@ -194,7 +234,7 @@ pub fn App() -> Element {
                             prefs: prefs,
                             submitted: submitted,
                             submit_nonce: submit_nonce,
-                            pending: itinerary.pending() && submitted(),
+                            pending: itinerary_pending && submitted(),
                         }
                     }
                 }
@@ -209,7 +249,7 @@ pub fn App() -> Element {
                     "{copies::MAIN_SUBHEAD}"
                 }
 
-                { render_state(submitted, itinerary, active_day, show_slow_hint, timed_out) }
+                { render_state(submitted, itinerary, itinerary_state, active_day, countdown_secs, show_slow_hint, timed_out) }
             }
 
             // ===== Footer =====
@@ -226,7 +266,9 @@ pub fn App() -> Element {
 fn render_state(
     submitted: Signal<bool>,
     mut itinerary: Resource<Option<Result<Itinerary, ServerFnError>>>,
+    itinerary_state: UseResourceState,
     active_day: Signal<usize>,
+    countdown_secs: u8,
     show_slow_hint: Signal<bool>,
     timed_out: Signal<bool>,
 ) -> Element {
@@ -238,7 +280,7 @@ fn render_state(
     // Phase 5: 60s hard cap fired while still pending → surface a typed
     // timeout error through `ErrorBox` so the user gets a clear message
     // and a "Try again" button (which re-runs the resource).
-    if timed_out() && itinerary.pending() {
+    if timed_out() && itinerary_state == UseResourceState::Pending {
         // Phase 5: 60s hard cap fired while still pending → surface a
         // typed timeout error through `ErrorBox`. The message carries both
         // the title and body so `classify_error` routes it as a generic
@@ -260,21 +302,13 @@ fn render_state(
         };
     }
 
-    // `Resource::value()` is `ReadSignal<Option<T>>` where `T == Option<Result<…>>`.
-    // Full type: `Option<Option<Result<Itinerary, ServerFnError>>>`.
-    //   - `None`                       → resource still pending → skeleton
-    //   - `Some(None)`                 → resolved with "not submitted" (defensive)
-    //   - `Some(Some(Ok(itin)))`       → success
-    //   - `Some(Some(Err(e)))`         → error
-    let value = itinerary.value()();
-
-    match value {
-        None => rsx! {
+    if itinerary_state == UseResourceState::Pending {
+        return rsx! {
             // Phase 5: structured shimmer skeleton replacing the generic
             // spinner. Mirrors the day-card + timeline layout so the
             // transition to the real content is visually continuous.
             div { class: "space-y-6",
-                // Title block so the user sees *something* immediately
+                // Title block so the user sees *something* immediately.
                 div { class: "bg-white rounded-2xl shadow-lg border border-[#e8f0eb] p-8 text-center",
                     div { class: "text-4xl mb-3 animate-pulse", "✨" }
                     h3 { class: "font-semibold text-lg text-[#1a4f3a] mb-1",
@@ -282,6 +316,9 @@ fn render_state(
                     }
                     p { class: "text-sm text-[#6b8a78] max-w-md mx-auto",
                         "{copies::LOADING_SUBHEAD}"
+                    }
+                    p { class: "text-sm font-medium text-[#1a4f3a] mt-3",
+                        "{copies::LOADING_COUNTDOWN_LABEL}: {countdown_secs}s"
                     }
                     if show_slow_hint() {
                         p { class: "text-sm text-[#b8860b] max-w-md mx-auto mt-4 animate-pulse",
@@ -332,10 +369,12 @@ fn render_state(
                     }
                 }
             }
-        },
+        };
+    }
 
+    match itinerary.value()() {
+        None => rsx! {},
         Some(None) => rsx! {},
-
         Some(Some(Err(e))) => {
             rsx! {
                 ErrorBox {

@@ -275,7 +275,7 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
             div { class: "flex justify-end",
                 button {
                     class: "btn-plan",
-                    r#type: "submit",
+                    r#type: "button",
                     disabled: pending,
                     onclick: on_submit,
                     if pending {

@@ -35,6 +35,7 @@ pub static PLAN_BUTTON_PENDING: &str = "✨ Planning…";
 // ===== Loading state =====
 pub static LOADING_TITLE: &str = "Curating your trip…";
 pub static LOADING_SUBHEAD: &str = "Calling the planner — this usually takes 10–20 seconds.";
+pub static LOADING_COUNTDOWN_LABEL: &str = "Estimated time remaining";
 pub static LOADING_HINT_8S: &str = "Taking a little longer than usual — the model is thinking.";
 pub static LOADING_TIMEOUT_TITLE: &str = "The planner is taking too long";
 pub static LOADING_TIMEOUT_BODY: &str =

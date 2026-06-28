@@ -276,10 +276,14 @@ Phase 1 corpus builder:
   drives a four-state machine (not-submitted / pending / error /
   success) keyed off `submitted` + a `submit_nonce` (so re-submitting
   identical prefs still re-runs the resource — Dioxus 0.7 otherwise
-  caches identical closures). Phase 5 adds an 8s "taking longer" hint
-  and a 60s client-side hard cap (backstop to the server's own reqwest
-  timeout), both via `gloo-timers::future::TimeoutFuture` (wasm-safe;
-  `tokio::time` is server-only).
+  caches identical closures). Phase 5 adds a request-scoped 20s loading
+  countdown, an 8s "taking longer" hint, and a 60s client-side hard
+  cap (backstop to the server's own reqwest timeout), all via
+  `gloo-timers::future::TimeoutFuture` (wasm-safe; `tokio::time` is
+  server-only). The render path keys off the reactive
+  `Resource::state().cloned()` value, not `Resource::pending()`, because
+  `pending()` is a non-subscribing peek helper and won't itself trigger a
+  re-render when the request flips to `Ready`.
 - `components/planner_form` — the preferences form, mutates the
   `Signal<Preferences>` and bumps `submit_nonce` on submit.
 - `components/itinerary_view` + `day_card` + `activity_row` +
@@ -371,8 +375,11 @@ is non-generic (returns `Itinerary`, not `T`) so it stays
   and matches the AGENTS.md MVP contract.
 - **Client state** — entirely in Dioxus signals owned by `App`:
   `Preferences`, `submitted`, `submit_nonce` (re-submit trigger),
-  `active_day` (day-tab index), `show_slow_hint`, `timed_out`. Nothing
-  is persisted client-side; a refresh starts over.
+   `active_day` (day-tab index), `countdown_tick` (20s pending-state
+   loading countdown driver; the displayed seconds are derived from it),
+   `show_slow_hint`, `timed_out`, plus the reactive `itinerary_state`
+   read from `use_resource(...).state()`. Nothing is persisted
+   client-side; a refresh starts over.
 
 ## 9. Configuration surface
 
