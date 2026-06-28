@@ -26,7 +26,7 @@
 #![cfg(feature = "server")]
 
 use std::env;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::Context;
 use async_openai::Client;
@@ -155,6 +155,9 @@ impl LlmClient {
             .messages([system_msg, user_msg])
             .build()?;
 
+        let input_chars = system.len() + user.len();
+        let start = Instant::now();
+
         let response = tokio::time::timeout(self.timeout, self.client.chat().create(request))
             .await
             .context(format!(
@@ -162,6 +165,8 @@ impl LlmClient {
                 self.timeout
             ))?
             .context("chat completion request to LLM failed")?;
+
+        let latency_ms = start.elapsed().as_millis() as u64;
 
         let content = response
             .choices
@@ -171,7 +176,24 @@ impl LlmClient {
             .filter(|s| !s.is_empty())
             .ok_or_else(|| anyhow::anyhow!("LLM returned no message content"))?;
 
-        parse_llm_json::<T>(&content)
+        let output_chars = content.len();
+        tracing::info!(
+            model = %self.model,
+            input_chars,
+            output_chars,
+            latency_ms,
+            "LLM call completed"
+        );
+
+        parse_llm_json::<T>(&content).inspect_err(|_| {
+            tracing::warn!(
+                model = %self.model,
+                input_chars,
+                latency_ms,
+                raw_output = %content,
+                "LLM response failed to parse"
+            );
+        })
     }
 }
 

@@ -70,6 +70,17 @@ const TOP_K: usize = 5;
 pub async fn plan_trip(prefs: Preferences) -> Result<Itinerary, ServerFnError> {
     #[cfg(feature = "server")]
     {
+        tracing::info!(
+            duration = prefs.duration_days,
+            month = prefs.month.as_str(),
+            pace = prefs.pace.as_str(),
+            budget = prefs.budget_tier.as_str(),
+            green = prefs.green_travel,
+            adults = prefs.travelers.adults,
+            kids = prefs.travelers.kids,
+            interests = ?prefs.interests.iter().map(|i| i.as_str()).collect::<Vec<_>>(),
+            "plan_trip: processing request"
+        );
         use crate::server::shared_concurrency_limit;
         let retriever = shared_retriever().map_err(|e| ServerFnError::new(e.to_string()))?;
         let llm = shared_llm().map_err(|e| ServerFnError::new(e.to_string()))?;
@@ -111,24 +122,34 @@ pub async fn plan_trip_inner(
     llm: &dyn LlmCompleter,
 ) -> anyhow::Result<Itinerary> {
     validate_prefs(prefs)?;
+    tracing::info!("plan_trip: prefs validated");
 
     let query = build_retrieval_query(prefs);
     let chunks = retriever.search(&query, TOP_K).await;
     if chunks.is_empty() {
+        tracing::warn!(query, "plan_trip: no grounding chunks found");
         anyhow::bail!("no grounding chunks found for those preferences; the corpus may be empty");
     }
+    tracing::info!(count = chunks.len(), "plan_trip: retrieved chunks");
 
     let system = prompts::SYSTEM_PROMPT
         .replace("{duration}", &prefs.duration_days.to_string())
         .replace("{month}", prefs.month.as_str());
     let user = prompts::build_user_prompt(prefs, &chunks);
+    tracing::info!(
+        system_chars = system.len(),
+        user_chars = user.len(),
+        "plan_trip: prompts assembled"
+    );
 
     let itinerary = llm
         .complete_itinerary(&system, &user)
         .await
         .context("LLM call failed")?;
+    tracing::info!("plan_trip: LLM returned itinerary");
 
     post_validate(&itinerary, prefs, &chunks)?;
+    tracing::info!("plan_trip: itinerary passed post-validation");
     Ok(itinerary)
 }
 
