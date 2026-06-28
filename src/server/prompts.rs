@@ -34,9 +34,10 @@ Rules:
 restaurants, hotels, beaches, or prices. If a preference can't be met from \
 the chunks, say so briefly in that day's title or skip the slot rather than \
 fabricate.
-2. Each activity's `source_url` MUST come from a chunk's `source_url`. \
-Quang Nam content you remember from training is NOT allowed as a source — \
-only the URLs in the chunks block.
+2. Each activity's `source_url` MUST be an exact copy-paste of one of the \
+chunk URLs listed below. Do NOT construct, modify, guess, or remember any \
+URL — even if you know it from training. Only the URLs printed in the \
+chunks block below are allowed.
 3. Plan exactly {duration} consecutive days (Day 1 through Day {duration}). \
 Each day should have 3-5 activities from morning to evening.
 4. Respect the pace (Slow <=3 activities/day, Moderate 4, Active 5).
@@ -118,9 +119,14 @@ pub fn build_user_prompt(prefs: &Preferences, chunks: &[Chunk]) -> String {
             c.source_url,
         ));
     }
+    s.push_str("Available source_url values:\n");
+    for (i, c) in chunks.iter().enumerate() {
+        s.push_str(&format!("  [{}] {}\n", i + 1, c.source_url));
+    }
     s.push_str(
-        "Now return the itinerary JSON. Use only the chunk URLs above as \
-`source_url` values. Do not include any text before or after the JSON.",
+        "\nNow return the itinerary JSON. Every activity's `source_url` \
+must be a verbatim copy of one URL from the list above. Do not include \
+any text before or after the JSON.",
     );
     s
 }
