@@ -43,7 +43,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 
 # Build the fullstack bundle: a single axum server binary + the wasm client +
 # static assets, emitted to dist/ (dx's default --out-dir).
-RUN dx bundle --release --platform web
+RUN dx bundle --release --platform web --out-dir /app/dist
 
 # ---- Runtime -------------------------------------------------------------
 FROM debian:bookworm-slim AS runtime
