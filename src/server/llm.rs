@@ -36,6 +36,7 @@ use async_openai::types::{
     ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequestArgs, ResponseFormat,
 };
 use async_trait::async_trait;
+use backoff::ExponentialBackoffBuilder;
 use serde::de::DeserializeOwned;
 
 use visit_quang_nam_planner::domain::Itinerary;
@@ -50,8 +51,9 @@ const DEFAULT_BASE_URL: &str = "https://opencode.ai/zen/v1";
 /// Server-side cap on the chat-completion call. The wasm client's 60s
 /// cap (see `app.rs`) is the backstop; this is the authoritative guard
 /// that frees the axum worker even if the Zen endpoint hangs. Tunable
-/// via `OPENCODE_TIMEOUT_SECS`.
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
+/// via `OPENCODE_TIMEOUT_SECS`. Set to 120s by default to accommodate
+/// rate-limit retries at OpenAI Free / Tier-1 (3 RPM / 500 RPM).
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
 /// Max completion tokens per LLM call. A 14-day itinerary with 5 activities
 /// each fits comfortably in ~8K tokens; a lower cap speeds generation by
 /// preventing the model from inflating output verbosity. Reasoning models
@@ -110,8 +112,13 @@ impl LlmClient {
         let config = OpenAIConfig::new()
             .with_api_key(api_key)
             .with_api_base(base_url);
+        // Rate-limit retries: stop retrying once we're past the deadline
+        // so the `tokio::time::timeout` in `complete_json` fires promptly.
+        let backoff = ExponentialBackoffBuilder::new()
+            .with_max_elapsed_time(Some(timeout))
+            .build();
         Ok(Self {
-            client: Client::with_config(config),
+            client: Client::with_config(config).with_backoff(backoff),
             model,
             timeout,
             max_tokens,
