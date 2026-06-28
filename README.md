@@ -1,3 +1,12 @@
+---
+title: Visit Quang Nam AI Trip Planner
+emoji: 🏝️
+colorFrom: green
+colorTo: blue
+sdk: docker
+pinned: false
+---
+
 # Visit Quang Nam AI Trip Planner
 
 A personalised itinerary generator grounded in the content of
