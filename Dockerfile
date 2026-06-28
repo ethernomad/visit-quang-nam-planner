@@ -68,7 +68,8 @@ COPY --from=builder /app/data ./data
 #  - CORPUS_PATH (optional, default data/corpus.json)
 #  - PORT — the dioxus fullstack axum server reads this (dioxus-cli-config).
 #    On Hugging Face Spaces this is set by the platform (default 7860).
-ENV CORPUS_PATH=/app/data/corpus.json
+ENV CORPUS_PATH=/app/data/corpus.json \
+    PORT=7860
 
 EXPOSE 7860
 
