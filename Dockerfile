@@ -66,12 +66,11 @@ COPY --from=builder /app/data ./data
 #  - OPENAI_API_KEY   (required) — query-time embeddings. Set at `docker run`.
 #  - OPENCODE_BASE_URL / OPENCODE_MODEL (optional, defaults in src/server/llm.rs)
 #  - CORPUS_PATH (optional, default data/corpus.json)
-#  - PORT — the dioxus fullstack axum server reads this (dioxus-cli-config),
-#    default 8080. NOT ROCKET_PORT (no Rocket in this stack).
-ENV CORPUS_PATH=/app/data/corpus.json \
-    PORT=8080
+#  - PORT — the dioxus fullstack axum server reads this (dioxus-cli-config).
+#    On Hugging Face Spaces this is set by the platform (default 7860).
+ENV CORPUS_PATH=/app/data/corpus.json
 
-EXPOSE 8080
+EXPOSE 7860
 
 # dx bundle emits the server binary at the dist/ root; running it from within
 # dist/ lets the server locate the bundled public/ directory (wasm + assets).
