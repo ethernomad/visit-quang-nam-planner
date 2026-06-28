@@ -75,4 +75,4 @@ EXPOSE 7860
 # dx bundle emits the server binary at the dist/ root; running it from within
 # dist/ lets the server locate the bundled public/ directory (wasm + assets).
 WORKDIR /app/dist
-CMD ["./visit-quang-nam-planner"]
+CMD ["./server"]
