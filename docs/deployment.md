@@ -33,3 +33,11 @@ This app is a Dioxus 0.7 fullstack Docker container (axum server + wasm client).
 
 - **Free tier:** \$5 credit (roughly ~500 hours/month of a small VM)
 - The free offering has been shrinking; fine for a demo but not truly "free forever"
+
+## Hugging Face Spaces
+
+- **Free tier:** CPU Spaces (2 vCPU, 16GB RAM), sleeps after 48h inactivity; GPU Spaces (paid) also available
+- **Deploy:** Create a Space → pick **Docker SDK** → point at your GitHub repo (or push the `Dockerfile` directly) → add `OPENAI_API_KEY` and `OPENCODE_API_KEY` as Space secrets
+- **Pro:** built-in community discovery; no credit card for CPU Spaces; Docker SDK means the existing `Dockerfile` works as-is
+- **Con:** free CPU Spaces sleep after inactivity (~30s cold start on wake); not intended for production API serving (best as a demo/sandbox)
+- **⚠️ First build may hit the 30-minute build timeout** — `dx bundle --release` compiles the full Rust dependency graph and the wasm client from scratch. Docker layer caching makes subsequent builds much faster; if the first deploy times out, simply retry.
