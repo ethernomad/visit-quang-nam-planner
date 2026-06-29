@@ -62,8 +62,8 @@ use crate::server::plan_trip::plan_trip;
 
 /// 8 seconds — show the "taking longer" hint.
 const SLOW_HINT_MS: u32 = 8_000;
-/// 20 seconds — initial countdown shown in the itinerary loading card.
-const LOADING_COUNTDOWN_SECS: u8 = 20;
+/// 45 seconds — initial countdown shown in the itinerary loading card.
+const LOADING_COUNTDOWN_SECS: u8 = 45;
 /// 1 second — refresh the derived countdown display while pending.
 const COUNTDOWN_TICK_MS: u32 = 1_000;
 /// 60 seconds — give up waiting and surface a timeout error.
@@ -77,6 +77,7 @@ pub fn App() -> Element {
     let prefs = use_signal(Preferences::default);
     let submitted = use_signal(|| false);
     let submit_nonce = use_signal(|| 0u32);
+    let submitted_prefs = use_signal(|| None::<Preferences>);
     let active_day = use_signal(|| 0usize);
 
     // Phase 5 resilience flags.
@@ -85,16 +86,16 @@ pub fn App() -> Element {
     let mut timed_out = use_signal(|| false);
 
     // `use_resource` re-runs when its closure's signal dependencies change.
-    // Reading `submitted()`, `submit_nonce()`, and `prefs()` inside the
-    // closure subscribes the resource to all three. `prefs()` is read
-    // *before* the async block so Dioxus owns the future without leaking
-    // the signal across an await boundary.
+    // Reading `submit_nonce()` and `submitted_prefs()` inside the closure
+    // subscribes the resource to those two signals — so it only fires when
+    // the user explicitly presses "Plan My Trip", never on individual pref
+    // changes. `submitted_prefs` is a snapshot taken by `PlannerForm` at
+    // submit time.
     let itinerary = use_resource(move || {
-        let submitted = submitted();
         let _nonce = submit_nonce();
-        let prefs = prefs();
+        let prefs = submitted_prefs();
         async move {
-            if submitted {
+            if let Some(prefs) = prefs {
                 Some(plan_trip(prefs).await)
             } else {
                 None
@@ -120,6 +121,24 @@ pub fn App() -> Element {
         show_slow_hint.set(false);
         timed_out.set(false);
     });
+
+    // Scroll to the itinerary section after submission.
+    {
+        use_resource(move || {
+            let is_submitted = submitted();
+            let nonce = submit_nonce();
+            async move {
+                if is_submitted {
+                    gloo_timers::future::TimeoutFuture::new(100).await;
+                    if submit_nonce() == nonce {
+                        let _ = dioxus::document::eval(
+                            r#"document.getElementById('itinerary-section')?.scrollIntoView({behavior:'smooth',block:'start'});"#,
+                        );
+                    }
+                }
+            }
+        });
+    }
 
     // 20-second countdown shown in the pending itinerary panel. Re-arms on
     // every submit and advances one tick per second while the current
@@ -234,6 +253,7 @@ pub fn App() -> Element {
                             prefs: prefs,
                             submitted: submitted,
                             submit_nonce: submit_nonce,
+                            submitted_prefs: submitted_prefs,
                             pending: itinerary_pending && submitted(),
                         }
                     }
@@ -241,15 +261,18 @@ pub fn App() -> Element {
             }
 
             // ===== Main =====
-            main { class: "max-w-5xl mx-auto px-6 py-12",
-                h2 { class: "font-[Georgia] text-2xl font-bold text-[#1a4f3a] mb-2",
-                    "{copies::MAIN_HEADING}"
-                }
-                p { class: "text-[#6b8a78] text-sm mb-6",
-                    "{copies::MAIN_SUBHEAD}"
-                }
+            if submitted() {
+                main { class: "max-w-5xl mx-auto px-6 py-12",
+                    h2 { id: "itinerary-section",
+                        class: "font-[Georgia] text-2xl font-bold text-[#1a4f3a] mb-2",
+                        "{copies::MAIN_HEADING}"
+                    }
+                    p { class: "text-[#6b8a78] text-sm mb-6",
+                        "{copies::MAIN_SUBHEAD}"
+                    }
 
-                { render_state(submitted, itinerary, itinerary_state, active_day, countdown_secs, show_slow_hint, timed_out) }
+                    { render_state(submitted, itinerary, itinerary_state, active_day, countdown_secs, show_slow_hint, timed_out) }
+                }
             }
 
             // ===== Footer =====

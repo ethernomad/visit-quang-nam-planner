@@ -26,6 +26,7 @@ pub struct PlannerFormProps {
     prefs: Signal<Preferences>,
     submitted: Signal<bool>,
     submit_nonce: Signal<u32>,
+    submitted_prefs: Signal<Option<Preferences>>,
     /// Phase 5: true while a `plan_trip` request is in flight. Disables the
     /// submit button so the user can't double-submit.
     pending: bool,
@@ -72,6 +73,7 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
     let mut prefs = props.prefs;
     let mut submitted = props.submitted;
     let mut nonce = props.submit_nonce;
+    let mut submitted_prefs = props.submitted_prefs;
     let pending = props.pending;
 
     let mut set_travelers = move |adults_delta: i32, kids_delta: i32| {
@@ -87,6 +89,7 @@ pub fn PlannerForm(props: PlannerFormProps) -> Element {
 
     let on_submit = move |_| {
         if !pending {
+            submitted_prefs.set(Some(prefs()));
             submitted.set(true);
             nonce.set(nonce() + 1);
         }

@@ -17,7 +17,7 @@ pub static HEADER_SUBTITLE: &str =
 pub static MAIN_HEADING: &str = "Your Custom Itinerary";
 pub static MAIN_SUBHEAD: &str =
     "Curated by AI from local Visit Quang Nam content, matched to your preferences.";
-pub static FOOTER_TEXT: &str = "Visit Quang Nam — Official Tourism Website | AI Trip Planner";
+pub static FOOTER_TEXT: &str = "Visit Quang Nam | Unofficial AI Trip Planner";
 pub static BRAND_PART_ONE: &str = "VISIT";
 pub static BRAND_PART_TWO: &str = "QUANG NAM";
 
@@ -34,7 +34,7 @@ pub static PLAN_BUTTON_PENDING: &str = "✨ Planning…";
 
 // ===== Loading state =====
 pub static LOADING_TITLE: &str = "Curating your trip…";
-pub static LOADING_SUBHEAD: &str = "Calling the planner — this usually takes 10–20 seconds.";
+pub static LOADING_SUBHEAD: &str = "Calling the planner — this usually takes 30–45 seconds.";
 pub static LOADING_COUNTDOWN_LABEL: &str = "Estimated time remaining";
 pub static LOADING_HINT_8S: &str = "Taking a little longer than usual — the model is thinking.";
 pub static LOADING_TIMEOUT_TITLE: &str = "The planner is taking too long";
